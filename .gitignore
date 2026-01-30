@@ -210,3 +210,4 @@ service_account.json
 app/keys/
 
 app/templates/config.txt
+rest.html
