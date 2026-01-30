@@ -3,7 +3,7 @@ from typing import Optional
 from datetime import datetime
 
 class ApprovalStatus:
-    """Helper class to keep status strings consistent across the app."""
+    """Helper class to keep status strings consistent."""
     DRAFT = "draft"
     PENDING_ADMIN = "pending_admin_review"
     PENDING_SUPER_ADMIN = "pending_super_admin_review"
@@ -12,11 +12,11 @@ class ApprovalStatus:
 class ChatbotConfig(BaseModel):
     bot_name: str
     primary_color: str = "#10B981"
-    secondary_color: str = "#1E293B"
-    logo_url: Optional[str] = None
     welcome_message: str = "Hello! How can I help you?"
-    bot_id: str = "demo-bot"
-    custom_css: Optional[str] = None
+    logo_url: Optional[str] = None
+    ema_tenant_id: Optional[str] = ""    
+    ema_project_id: Optional[str] = ""   
+    ema_persona_id: Optional[str] = ""   
 
 class Tenant(BaseModel):
     tenant_id: str
