@@ -17,8 +17,9 @@
     </style>
 </head>
 <body class="bg-gray-900 text-gray-100 flex h-screen overflow-hidden">
+
     <aside class="w-64 glass flex-shrink-0 flex flex-col justify-between border-r border-gray-800 z-20">
-       <div>
+        <div>
             <div class="h-16 flex items-center px-6 border-b border-gray-800">
                 <span class="font-bold text-lg tracking-wide">Lumina</span>
             </div>
@@ -127,23 +128,47 @@
                 </div>
                 
                 <hr class="border-gray-700 my-4">
-                <h4 class="text-sm font-bold text-gray-300">Bot Appearance</h4>
+                <h4 class="text-sm font-bold text-gray-300">Appearance</h4>
+                
                 <div class="grid grid-cols-2 gap-4">
-                    <input type="text" id="tBotName" value="Assistant" class="w-full bg-gray-800 border border-gray-700 rounded p-2.5 text-white">
-                    <div class="flex gap-2">
-                        <input type="color" id="tColor" value="#10B981" class="h-10 w-10 rounded cursor-pointer bg-transparent border-0">
-                        <input type="text" id="tColorHex" value="#10B981" class="w-full bg-gray-800 border border-gray-700 rounded p-2.5 text-white font-mono">
+                    <div>
+                        <label class="block text-xs font-medium text-gray-400 mb-1">Primary Color</label>
+                        <div class="flex gap-2">
+                            <input type="color" id="tColor" value="#10B981" class="h-10 w-10 rounded cursor-pointer bg-transparent border-0">
+                            <input type="text" id="tColorHex" value="#10B981" class="w-full bg-gray-800 border border-gray-700 rounded p-2.5 text-white font-mono text-xs">
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-gray-400 mb-1">Page Background</label>
+                        <div class="flex gap-2">
+                            <input type="color" id="tBgColor" value="#F9FAFB" class="h-10 w-10 rounded cursor-pointer bg-transparent border-0">
+                            <input type="text" id="tBgColorHex" value="#F9FAFB" class="w-full bg-gray-800 border border-gray-700 rounded p-2.5 text-white font-mono text-xs">
+                        </div>
                     </div>
                 </div>
-                <textarea id="tWelcome" rows="2" class="w-full bg-gray-800 border border-gray-700 rounded p-2.5 text-white">Hello! How can I help you?</textarea>
+
+                <div class="mt-2">
+                    <label class="block text-xs font-medium text-gray-400 mb-1">Bot Name</label>
+                    <input type="text" id="tBotName" value="Assistant" class="w-full bg-gray-800 border border-gray-700 rounded p-2.5 text-white">
+                </div>
+
+                <textarea id="tWelcome" rows="2" class="w-full bg-gray-800 border border-gray-700 rounded p-2.5 text-white mt-2" placeholder="Welcome message..."></textarea>
+
+                <div class="mt-2">
+                    <label class="block text-xs font-medium text-gray-400 mb-1">Banner Images</label>
+                    <div class="flex gap-2 items-center">
+                        <input type="file" id="bannerUpload" accept="image/*" class="text-xs text-gray-400 file:mr-2 file:py-1 file:px-2 file:rounded file:border-0 file:bg-gray-700 file:text-white hover:file:bg-gray-600">
+                        <button onclick="uploadBanner()" class="bg-gray-700 hover:bg-gray-600 text-white px-3 py-1 rounded text-xs border border-gray-600">Upload</button>
+                    </div>
+                    <input type="hidden" id="tBanners" value="">
+                    <div id="bannerPreview" class="flex gap-2 mt-2 overflow-x-auto p-1 h-16 empty:hidden"></div>
+                </div>
 
                 <hr class="border-gray-700 my-4">
                 <h4 class="text-sm font-bold text-gray-300">Custom Widget Script</h4>
-                <div class="space-y-2">
-                    <label class="block text-xs font-medium text-gray-400">Paste your EmaChat or other widget code here:</label>
-                    <textarea id="tCustomJS" rows="8" class="w-full bg-gray-800 border border-gray-700 rounded p-2.5 text-white font-mono text-xs" placeholder="(function(window, document...) { ... })(...);"></textarea>
-                </div>
+                <textarea id="tCustomJS" rows="6" class="w-full bg-gray-800 border border-gray-700 rounded p-2.5 text-white font-mono text-xs" placeholder="(function(window, document...) { ... })(...);"></textarea>
             </div>
+            
             <div class="mt-6 flex gap-3 justify-end">
                 <button onclick="document.getElementById('tenantModal').classList.add('hidden')" class="px-4 py-2 text-sm text-gray-400">Cancel</button>
                 <button onclick="submitTenant()" class="bg-purple-600 hover:bg-purple-500 text-white px-4 py-2 rounded-lg text-sm">Onboard</button>
@@ -177,34 +202,101 @@
         let auth = null;
         let token = null;
 
-        // Initialize App securely
+        // Initialize App
         async function initApp() {
             try {
-                // Fetch public config from backend
                 const response = await fetch('/api/v1/config');
                 const firebaseConfig = await response.json();
-                
-                if (!firebase.apps.length) {
-                    firebase.initializeApp(firebaseConfig);
-                }
-                
+                if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
                 auth = firebase.auth();
                 setupAuthListener();
+            } catch (e) { console.error("Config Load Error", e); }
+        }
 
+        // Color Picker Sync
+        document.getElementById('tColor').addEventListener('input', e => document.getElementById('tColorHex').value = e.target.value);
+        document.getElementById('tColorHex').addEventListener('input', e => document.getElementById('tColor').value = e.target.value);
+        
+        document.getElementById('tBgColor').addEventListener('input', e => document.getElementById('tBgColorHex').value = e.target.value);
+        document.getElementById('tBgColorHex').addEventListener('input', e => document.getElementById('tBgColor').value = e.target.value);
+
+        // --- UPLOAD LOGIC ---
+        async function uploadBanner() {
+            const fileInput = document.getElementById('bannerUpload');
+            const file = fileInput.files[0];
+            if (!file) return alert("Please select a file first.");
+
+            const btn = event.target;
+            const originalText = btn.innerText;
+            btn.innerText = "...";
+            btn.disabled = true;
+
+            const formData = new FormData();
+            formData.append("file", file);
+
+            try {
+                const res = await fetch('/api/v1/admin/upload', {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${token}` },
+                    body: formData
+                });
+
+                if (!res.ok) throw new Error("Upload failed");
+                const data = await res.json();
+                
+                // Add URL to hidden input (newline separated)
+                const hiddenInput = document.getElementById('tBanners');
+                hiddenInput.value += (hiddenInput.value ? "\n" : "") + data.url;
+
+                // Show thumbnail
+                const preview = document.getElementById('bannerPreview');
+                preview.innerHTML += `<img src="${data.url}" class="h-12 w-12 rounded object-cover border border-gray-600 bg-gray-800" title="Banner">`;
+                
+                fileInput.value = ""; // Reset
             } catch (e) {
-                console.error("Failed to initialize app config", e);
+                alert(e.message);
+            } finally {
+                btn.innerText = originalText;
+                btn.disabled = false;
             }
         }
 
-        // Color Sync
-        document.getElementById('tColor').addEventListener('input', e => document.getElementById('tColorHex').value = e.target.value);
-        document.getElementById('tColorHex').addEventListener('input', e => document.getElementById('tColor').value = e.target.value);
+        // --- SUBMIT LOGIC ---
+        async function submitTenant() {
+            const payload = {
+                client_name: document.getElementById('tName').value,
+                tenant_id: document.getElementById('tId').value,
+                slug: document.getElementById('tSlug').value,
+                bot_name: document.getElementById('tBotName').value,
+                welcome_message: document.getElementById('tWelcome').value,
+                primary_color: document.getElementById('tColorHex').value,
+                custom_js: document.getElementById('tCustomJS').value,
+                // New Fields
+                background_color: document.getElementById('tBgColorHex').value,
+                banner_urls: document.getElementById('tBanners').value
+            };
+            
+            const res = await fetch('/api/v1/admin/tenants', {
+                method: 'POST',
+                headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            if (res.ok) { 
+                alert("Tenant Onboarded!"); 
+                document.getElementById('tenantModal').classList.add('hidden');
+                // Reset form
+                document.getElementById('tBanners').value = "";
+                document.getElementById('bannerPreview').innerHTML = "";
+                loadTenants(); 
+            }
+            else { const err = await res.json(); alert("Error: " + err.detail); }
+        }
 
+        // --- AUTH & NAVIGATION (Standard) ---
         function setupAuthListener() {
             auth.onAuthStateChanged(async (user) => {
                 if (!user) {
-                    const urlParams = new URLSearchParams(window.location.search);
-                    if (!urlParams.has('force_login')) window.location.href = "/?force_login=true";
+                    if (!new URLSearchParams(window.location.search).has('force_login')) window.location.href = "/?force_login=true";
                     return;
                 }
                 document.getElementById('userEmail').innerText = user.email;
@@ -229,7 +321,6 @@
             });
         }
 
-        // --- CORE FUNCTIONS (Unchanged logic) ---
         function switchView(viewName) {
             ['workspace', 'approvals', 'users', 'tenants'].forEach(v => {
                 document.getElementById(`view-${v}`)?.classList.add('hidden');
@@ -275,25 +366,6 @@
             `).join('');
         }
 
-        async function submitTenant() {
-            const payload = {
-                client_name: document.getElementById('tName').value,
-                tenant_id: document.getElementById('tId').value,
-                slug: document.getElementById('tSlug').value,
-                bot_name: document.getElementById('tBotName').value,
-                welcome_message: document.getElementById('tWelcome').value,
-                primary_color: document.getElementById('tColorHex').value,
-                custom_js: document.getElementById('tCustomJS').value
-            };
-            const res = await fetch('/api/v1/admin/tenants', {
-                method: 'POST',
-                headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
-            });
-            if (res.ok) { alert("Tenant Onboarded!"); document.getElementById('tenantModal').classList.add('hidden'); loadTenants(); }
-            else { const err = await res.json(); alert("Error: " + err.detail); }
-        }
-
         async function deleteTenant(id) {
             if (!confirm("Delete tenant?")) return;
             const res = await fetch(`/api/v1/admin/tenants/${id}`, { method: 'DELETE', headers: { 'Authorization': `Bearer ${token}` }});
@@ -324,7 +396,6 @@
         }
         async function deleteUser(uid) { if(confirm("Delete?")) await fetch(`/api/v1/admin/users/${uid}`, { method: 'DELETE', headers: { 'Authorization': `Bearer ${token}` }}); loadUsers(); }
 
-        // Boot App
         initApp();
     </script>
 </body>

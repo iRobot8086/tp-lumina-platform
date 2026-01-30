@@ -1,5 +1,5 @@
 import logging
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
 from firebase_admin import auth as firebase_auth
 from datetime import datetime
 
@@ -9,10 +9,29 @@ from app.api.v1.endpoints.auth import get_current_user
 from app.db.firestore import db
 from app.services.workflow import WorkflowService
 from app.core.rbac import check_permission, Action
+from app.storage import upload_file_to_gcs  # Import the new storage helper
 
 # Setup Logging
 logger = logging.getLogger("lumina.admin")
 router = APIRouter()
+
+# --- UPLOAD ROUTE (NEW) ---
+@router.post("/upload")
+async def upload_asset(file: UploadFile = File(...), current_user: dict = Depends(get_current_user)):
+    """Uploads an image to GCS and returns the public URL."""
+    if not check_permission(current_user["role"], Action.MANAGE_USERS):
+        raise HTTPException(status_code=403, detail="Permission denied")
+
+    # Validate file type
+    if file.content_type not in ["image/jpeg", "image/png", "image/webp", "image/gif"]:
+        raise HTTPException(status_code=400, detail="Only images (JPEG, PNG, WEBP, GIF) allowed")
+
+    try:
+        public_url = upload_file_to_gcs(file.file, file.filename, file.content_type)
+        return {"url": public_url}
+    except Exception as e:
+        logger.error(f"Upload failed: {e}")
+        raise HTTPException(status_code=500, detail="Image upload failed")
 
 # --- DASHBOARD ROUTES ---
 @router.get("/my-tenants")
@@ -103,11 +122,21 @@ async def create_tenant(payload: dict, current_user: dict = Depends(get_current_
         if db.collection("tenants").document(tenant_id).get().exists:
              raise HTTPException(status_code=400, detail="Tenant ID already exists")
 
+        # Process Banners (expects list of strings or newline-separated string)
+        raw_banners = payload.get("banner_urls", [])
+        if isinstance(raw_banners, str):
+            banner_list = [url.strip() for url in raw_banners.split('\n') if url.strip()]
+        else:
+            banner_list = raw_banners
+
         initial_config = ChatbotConfig(
             bot_name=payload.get("bot_name", "My Bot"),
             primary_color=payload.get("primary_color", "#10B981"),
             welcome_message=payload.get("welcome_message", "Hello!"),
-            custom_js=payload.get("custom_js", "") 
+            custom_js=payload.get("custom_js", ""),
+            # New Fields
+            background_color=payload.get("background_color", "#F9FAFB"),
+            banner_urls=banner_list
         )
 
         new_tenant = Tenant(

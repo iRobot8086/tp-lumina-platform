@@ -4,14 +4,84 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{{ client_name }} - Support</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        :root { 
+            --primary-color: {{ config.primary_color }}; 
+            --bg-color: {{ config.background_color }};
+        }
+        .bg-brand { background-color: var(--primary-color); }
+        .text-brand { color: var(--primary-color); }
+        .dynamic-bg { background-color: var(--bg-color); }
+        
+        /* Carousel Transitions */
+        .carousel-track { transition: transform 0.5s ease-in-out; }
+    </style>
 </head>
-<body>
-    {% if config.custom_js %}
+<body class="dynamic-bg h-screen flex flex-col overflow-hidden">
+
+    <nav class="bg-white/90 backdrop-blur shadow-sm p-4 flex justify-between items-center z-10">
+        <div class="font-bold text-xl">{{ client_name }}</div>
+        <a href="#" class="text-sm text-gray-500 hover:text-brand">Contact Support</a>
+    </nav>
+
+    <div class="flex-1 overflow-y-auto">
+        
+        {% if config.banner_urls %}
+        <div class="relative w-full h-64 md:h-96 overflow-hidden group bg-gray-200">
+            <div id="carousel" class="carousel-track flex h-full w-full">
+                {% for url in config.banner_urls %}
+                <div class="min-w-full h-full">
+                    <img src="{{ url }}" class="w-full h-full object-cover" alt="Banner {{ loop.index }}">
+                </div>
+                {% endfor %}
+            </div>
+            
+            {% if config.banner_urls|length > 1 %}
+            <button onclick="moveSlide(-1)" class="absolute left-4 top-1/2 -translate-y-1/2 bg-black/30 hover:bg-black/50 text-white p-2 rounded-full opacity-0 group-hover:opacity-100 transition">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" /></svg>
+            </button>
+            <button onclick="moveSlide(1)" class="absolute right-4 top-1/2 -translate-y-1/2 bg-black/30 hover:bg-black/50 text-white p-2 rounded-full opacity-0 group-hover:opacity-100 transition">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" /></svg>
+            </button>
+            {% endif %}
+        </div>
+        {% endif %}
+
+        <div class="flex flex-col items-center justify-center text-center p-8">
+            <h1 class="text-4xl font-bold text-gray-900 mb-4 drop-shadow-sm">Welcome to {{ client_name }}</h1>
+            <p class="text-gray-700 max-w-md mb-8 text-lg">{{ config.welcome_message }}</p>
+            
+            <div class="p-4 bg-white/50 backdrop-blur border border-white/20 rounded-xl shadow-sm text-sm text-gray-600">
+                <p><strong>Demo Mode:</strong> The custom widget script is loaded below.</p>
+            </div>
+        </div>
+    </div>
+
     <script>
-            {{ config.custom_js | safe }}
+        let currentIndex = 0;
+        const track = document.getElementById('carousel');
+        const slides = track ? track.children : [];
+        
+        function moveSlide(direction) {
+            if (!track || slides.length === 0) return;
+            currentIndex = (currentIndex + direction + slides.length) % slides.length;
+            track.style.transform = `translateX(-${currentIndex * 100}%)`;
+        }
+
+        // Auto-play only if multiple slides exist
+        if (track && slides.length > 1) {
+            setInterval(() => moveSlide(1), 5000);
+        }
     </script>
+
+    {% if config.custom_js %}
+        <script>
+            {{ config.custom_js | safe }}
+        </script>
     {% else %}
         <script>console.warn("Lumina: No custom script configured for this tenant.");</script>
     {% endif %}
+
 </body>
 </html>

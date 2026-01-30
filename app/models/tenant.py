@@ -1,5 +1,5 @@
 from pydantic import BaseModel, Field
-from typing import Optional
+from typing import Optional, List
 from datetime import datetime
 
 class ApprovalStatus:
@@ -14,8 +14,11 @@ class ChatbotConfig(BaseModel):
     welcome_message: str = "Hello! How can I help you?"
     logo_url: Optional[str] = None
     
-    # --- CHANGED: Raw JavaScript Storage ---
-    # This stores the exact code snippet you paste in the dashboard
+    # --- NEW FIELDS ---
+    banner_urls: List[str] = Field(default_factory=list)
+    background_color: str = "#F9FAFB"  # Default gray-50
+    
+    # --- EXISTING ---
     custom_js: Optional[str] = "" 
 
 class Tenant(BaseModel):

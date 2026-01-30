@@ -34,9 +34,9 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request, call_next):
         response = await call_next(request)
         # UPDATED POLICY:
-        # - script-src: Added 'https://apis.google.com' (Google Sign-In loader)
-        # - connect-src: Added 'https://www.googleapis.com' (Auth APIs) & 'https://www.gstatic.com' (Map files)
-        # - frame-src: Added 'https://accounts.google.com' (OAuth Popups) & 'https://*.firebaseapp.com' (Auth Handlers)
+        # 1. frame-src: Added 'https://chatbot.ema.co' to allow the chatbot iframe to load.
+        # 2. script-src: Added 'https://apis.google.com' for Google Sign-In.
+        # 3. connect-src: Added 'https://www.gstatic.com' for Firebase map files.
         response.headers["Content-Security-Policy"] = (
             "default-src 'self'; "
             "script-src 'self' 'unsafe-inline' https://cdn.tailwindcss.com https://cdnjs.cloudflare.com https://www.gstatic.com https://chatbot.ema.co https://apis.google.com; "
@@ -44,7 +44,7 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
             "img-src 'self' data: https:; "
             "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
             "font-src 'self' https://fonts.gstatic.com; "
-            "frame-src 'self' https://accounts.google.com https://*.firebaseapp.com;"
+            "frame-src 'self' https://accounts.google.com https://*.firebaseapp.com https://chatbot.ema.co;"
         )
         return response
 
