@@ -1,0 +1,373 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lumina Control Panel</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/js/all.min.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .glass { background: rgba(17, 24, 39, 0.7); backdrop-filter: blur(10px); border: 1px solid rgba(255, 255, 255, 0.1); }
+        .glass-card { background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.1); }
+        .sidebar-link.active { background: rgba(139, 92, 246, 0.2); border-right: 3px solid #8B5CF6; color: white; }
+    </style>
+</head>
+<body class="bg-gray-900 text-gray-100 flex h-screen overflow-hidden">
+
+    <aside class="w-64 glass flex-shrink-0 flex flex-col justify-between border-r border-gray-800 z-20">
+        <div>
+            <div class="h-16 flex items-center px-6 border-b border-gray-800">
+                <span class="font-bold text-lg tracking-wide">Lumina</span>
+            </div>
+            <nav class="mt-6 px-4 space-y-2">
+                <button onclick="switchView('workspace')" id="nav-workspace" class="sidebar-link active w-full flex items-center px-4 py-3 text-sm font-medium text-gray-400 rounded-r-lg hover:bg-gray-800 hover:text-white transition-colors">
+                    <i class="fa-solid fa-grid-2 w-6"></i> My Workspace
+                </button>
+                <div id="admin-nav" class="hidden pt-4 mt-4 border-t border-gray-800">
+                    <p class="px-4 text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Control Panel</p>
+                    <button onclick="switchView('approvals')" id="nav-approvals" class="sidebar-link w-full flex items-center px-4 py-3 text-sm font-medium text-gray-400 rounded-r-lg hover:bg-gray-800 hover:text-white transition-colors">
+                        <i class="fa-solid fa-list-check w-6"></i> Approvals
+                        <span id="badge-count" class="hidden ml-auto bg-purple-600 text-white text-[10px] px-2 py-0.5 rounded-full">0</span>
+                    </button>
+                    <button onclick="switchView('tenants')" id="nav-tenants" class="hidden sidebar-link w-full flex items-center px-4 py-3 text-sm font-medium text-gray-400 rounded-r-lg hover:bg-gray-800 hover:text-white transition-colors">
+                        <i class="fa-solid fa-building w-6"></i> Tenants
+                    </button>
+                    <button onclick="switchView('users')" id="nav-users" class="hidden sidebar-link w-full flex items-center px-4 py-3 text-sm font-medium text-gray-400 rounded-r-lg hover:bg-gray-800 hover:text-white transition-colors">
+                        <i class="fa-solid fa-users-gear w-6"></i> Users
+                    </button>
+                </div>
+            </nav>
+        </div>
+        <div class="p-4 border-t border-gray-800">
+            <div class="flex items-center gap-3 mb-3">
+                <div class="w-8 h-8 rounded-full bg-gray-700 flex items-center justify-center text-xs" id="userAvatar">U</div>
+                <div class="overflow-hidden">
+                    <p class="text-xs font-medium text-white truncate" id="userEmail">Loading...</p>
+                    <p class="text-[10px] text-gray-500 uppercase" id="userRole"></p>
+                </div>
+            </div>
+            <button onclick="firebase.auth().signOut()" class="w-full text-xs bg-gray-800 hover:bg-gray-700 text-gray-300 py-2 rounded border border-gray-700 transition-colors">Sign Out</button>
+        </div>
+    </aside>
+
+    <main class="flex-1 overflow-y-auto relative p-8">
+        
+        <section id="view-workspace" class="space-y-6">
+            <h1 class="text-2xl font-bold text-white">My Projects</h1>
+            <div id="tenantList" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"></div>
+        </section>
+
+        <section id="view-approvals" class="hidden space-y-6">
+            <h1 class="text-2xl font-bold text-white">Pending Approvals</h1>
+            <div class="glass rounded-xl overflow-hidden">
+                <table class="w-full text-left text-sm text-gray-400">
+                    <thead class="bg-gray-800 text-gray-200">
+                        <tr><th class="px-6 py-4">Project</th><th class="px-6 py-4">Submitted By</th><th class="px-6 py-4 text-right">Actions</th></tr>
+                    </thead>
+                    <tbody id="approvalList" class="divide-y divide-gray-800"></tbody>
+                </table>
+            </div>
+        </section>
+
+        <section id="view-tenants" class="hidden space-y-6">
+            <div class="flex justify-between items-center">
+                <div>
+                    <h1 class="text-2xl font-bold text-white">Tenant Management</h1>
+                    <p class="text-gray-400 text-sm mt-1">Onboard clients and configure their initial bots.</p>
+                </div>
+                <button onclick="document.getElementById('tenantModal').classList.remove('hidden')" class="bg-purple-600 hover:bg-purple-500 text-white px-4 py-2 rounded-lg text-sm transition-all shadow-lg shadow-purple-900/20">
+                    + Onboard Tenant
+                </button>
+            </div>
+            <div class="glass rounded-xl overflow-hidden">
+                <table class="w-full text-left text-sm text-gray-400">
+                    <thead class="bg-gray-800 text-gray-200">
+                        <tr>
+                            <th class="px-6 py-4">Client Name</th>
+                            <th class="px-6 py-4">Slug / ID</th>
+                            <th class="px-6 py-4">Live Config</th>
+                            <th class="px-6 py-4 text-right">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="allTenantsList" class="divide-y divide-gray-800"></tbody>
+                </table>
+            </div>
+        </section>
+
+        <section id="view-users" class="hidden space-y-6">
+            <div class="flex justify-between items-center">
+                <h1 class="text-2xl font-bold text-white">Access Control</h1>
+                <button onclick="document.getElementById('userModal').classList.remove('hidden')" class="bg-purple-600 hover:bg-purple-500 text-white px-4 py-2 rounded-lg text-sm transition-all">+ Add User</button>
+            </div>
+            <div class="glass rounded-xl overflow-hidden">
+                <table class="w-full text-left text-sm text-gray-400">
+                    <thead class="bg-gray-800 text-gray-200">
+                        <tr><th class="px-6 py-4">User</th><th class="px-6 py-4">Role</th><th class="px-6 py-4 text-right">Actions</th></tr>
+                    </thead>
+                    <tbody id="userList" class="divide-y divide-gray-800"></tbody>
+                </table>
+            </div>
+        </section>
+    </main>
+
+    <div id="tenantModal" class="fixed inset-0 z-50 hidden bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+        <div class="glass w-full max-w-lg rounded-xl p-6 shadow-2xl bg-gray-900 border border-gray-700 max-h-[90vh] overflow-y-auto">
+            <h3 class="text-lg font-bold text-white mb-4">Onboard New Tenant</h3>
+            
+            <div class="space-y-4">
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs font-medium text-gray-400 mb-1">Client Name</label>
+                        <input type="text" id="tName" placeholder="Acme Corp" class="w-full bg-gray-800 border border-gray-700 rounded p-2.5 text-white">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-gray-400 mb-1">Tenant ID (Unique)</label>
+                        <input type="text" id="tId" placeholder="acme-001" class="w-full bg-gray-800 border border-gray-700 rounded p-2.5 text-white">
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-gray-400 mb-1">Slug (URL)</label>
+                    <div class="flex">
+                        <span class="inline-flex items-center px-3 rounded-l border border-r-0 border-gray-700 bg-gray-800 text-gray-400 text-sm">/</span>
+                        <input type="text" id="tSlug" placeholder="acme" class="w-full bg-gray-800 border border-gray-700 rounded-r p-2.5 text-white">
+                    </div>
+                </div>
+
+                <hr class="border-gray-700 my-4">
+                <h4 class="text-sm font-bold text-gray-300">Initial Chatbot Config</h4>
+
+                <div>
+                    <label class="block text-xs font-medium text-gray-400 mb-1">Bot Name</label>
+                    <input type="text" id="tBotName" value="Assistant" class="w-full bg-gray-800 border border-gray-700 rounded p-2.5 text-white">
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-gray-400 mb-1">Welcome Message</label>
+                    <textarea id="tWelcome" rows="2" class="w-full bg-gray-800 border border-gray-700 rounded p-2.5 text-white">Hello! How can I help you today?</textarea>
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-gray-400 mb-1">Primary Color</label>
+                    <div class="flex gap-2">
+                        <input type="color" id="tColor" value="#8B5CF6" class="h-10 w-10 rounded cursor-pointer bg-transparent border-0">
+                        <input type="text" id="tColorHex" value="#8B5CF6" class="w-full bg-gray-800 border border-gray-700 rounded p-2.5 text-white font-mono">
+                    </div>
+                </div>
+            </div>
+
+            <div class="mt-6 flex gap-3 justify-end">
+                <button onclick="document.getElementById('tenantModal').classList.add('hidden')" class="px-4 py-2 text-sm text-gray-400">Cancel</button>
+                <button onclick="submitTenant()" class="bg-purple-600 hover:bg-purple-500 text-white px-4 py-2 rounded-lg text-sm">Onboard Client</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="userModal" class="fixed inset-0 z-50 hidden bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+        <div class="glass w-full max-w-md rounded-xl p-6 shadow-2xl bg-gray-900 border border-gray-700">
+            <h3 class="text-lg font-bold text-white mb-4">Add User</h3>
+            <div class="space-y-4">
+                <input type="email" id="newUserEmail" placeholder="Email" class="w-full bg-gray-800 border border-gray-700 rounded p-2.5 text-white">
+                <input type="password" id="newUserPass" placeholder="Password" class="w-full bg-gray-800 border border-gray-700 rounded p-2.5 text-white">
+                <select id="newUserRole" class="w-full bg-gray-800 border border-gray-700 rounded p-2.5 text-white">
+                    <option value="contributor">Contributor</option>
+                    <option value="admin">Admin</option>
+                    <option value="super_admin">Super Admin</option>
+                </select>
+                <input type="text" id="newUserTenants" placeholder="Tenants (comma separated)" class="w-full bg-gray-800 border border-gray-700 rounded p-2.5 text-white">
+            </div>
+            <div class="mt-6 flex gap-3 justify-end">
+                <button onclick="document.getElementById('userModal').classList.add('hidden')" class="px-4 py-2 text-sm text-gray-400">Cancel</button>
+                <button onclick="submitOnboarding()" class="bg-purple-600 hover:bg-purple-500 text-white px-4 py-2 rounded-lg text-sm">Create</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- TODO: PASTE YOUR FIREBASE CONFIG HERE ---
+        const firebaseConfig = {
+            apiKey: "AIzaSyBzMpQuo3FKt7RikvSDihfqGPd7YfQl-OY",
+            authDomain: "tp-lumina-485907.firebaseapp.com",
+            projectId: "tp-lumina-485907",
+            storageBucket: "tp-lumina-485907.firebasestorage.app",
+            messagingSenderId: "494059801034",
+            appId: "1:494059801034:web:5f12465c3821b65b5be733"
+        };
+        
+        if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth();
+        let token = null;
+
+        // Color Picker Sync
+        document.getElementById('tColor').addEventListener('input', e => document.getElementById('tColorHex').value = e.target.value);
+        document.getElementById('tColorHex').addEventListener('input', e => document.getElementById('tColor').value = e.target.value);
+
+        auth.onAuthStateChanged(async (user) => {
+            if (!user) {
+                const urlParams = new URLSearchParams(window.location.search);
+                if (!urlParams.has('force_login')) window.location.href = "/?force_login=true";
+                return;
+            }
+            document.getElementById('userEmail').innerText = user.email;
+            document.getElementById('userAvatar').innerText = user.email.charAt(0).toUpperCase();
+            token = await user.getIdToken();
+
+            try {
+                const res = await fetch('/api/v1/auth/me', { headers: { 'Authorization': `Bearer ${token}` }});
+                const profile = await res.json();
+                document.getElementById('userRole').innerText = profile.role.replace('_', ' ');
+
+                if (['admin', 'super_admin'].includes(profile.role)) {
+                    document.getElementById('admin-nav').classList.remove('hidden');
+                    loadApprovals();
+                }
+                if (profile.role === 'super_admin') {
+                    document.getElementById('nav-users').classList.remove('hidden');
+                    document.getElementById('nav-tenants').classList.remove('hidden'); // Show Tenants Tab
+                }
+                loadWorkspace();
+            } catch (e) { console.error("Profile load failed", e); }
+        });
+
+        function switchView(viewName) {
+            ['workspace', 'approvals', 'users', 'tenants'].forEach(v => {
+                document.getElementById(`view-${v}`)?.classList.add('hidden');
+                document.getElementById(`nav-${v}`)?.classList.remove('active');
+            });
+            document.getElementById(`view-${viewName}`).classList.remove('hidden');
+            document.getElementById(`nav-${viewName}`).classList.add('active');
+            
+            if (viewName === 'users') loadUsers();
+            if (viewName === 'approvals') loadApprovals();
+            if (viewName === 'tenants') loadTenants(); // Load tenants
+        }
+
+        // --- NEW: TENANT LOGIC ---
+        async function loadTenants() {
+            const res = await fetch('/api/v1/admin/tenants', { headers: { 'Authorization': `Bearer ${token}` }});
+            const tenants = await res.json();
+            const tbody = document.getElementById('allTenantsList');
+            
+            tbody.innerHTML = tenants.map(t => `
+                <tr class="hover:bg-gray-800/50">
+                    <td class="px-6 py-4">
+                        <div class="text-white font-medium">${t.client_name}</div>
+                    </td>
+                    <td class="px-6 py-4">
+                        <div class="text-xs text-gray-400">/${t.slug}</div>
+                        <div class="text-[10px] text-gray-600 font-mono">${t.tenant_id}</div>
+                    </td>
+                    <td class="px-6 py-4">
+                        <div class="flex items-center gap-2">
+                            <div class="w-3 h-3 rounded-full" style="background:${t.live_config?.primary_color || '#333'}"></div>
+                            <span class="text-xs text-gray-400">${t.live_config?.bot_name}</span>
+                        </div>
+                    </td>
+                    <td class="px-6 py-4 text-right space-x-2">
+                        <a href="/${t.slug}" target="_blank" class="text-gray-500 hover:text-white"><i class="fa-solid fa-eye"></i></a>
+                        <button onclick="deleteTenant('${t.tenant_id}')" class="text-gray-500 hover:text-red-400"><i class="fa-solid fa-trash"></i></button>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        async function submitTenant() {
+            const payload = {
+                client_name: document.getElementById('tName').value,
+                tenant_id: document.getElementById('tId').value,
+                slug: document.getElementById('tSlug').value,
+                bot_name: document.getElementById('tBotName').value,
+                welcome_message: document.getElementById('tWelcome').value,
+                primary_color: document.getElementById('tColorHex').value
+            };
+
+            const res = await fetch('/api/v1/admin/tenants', {
+                method: 'POST',
+                headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+
+            if (res.ok) {
+                alert("Tenant Onboarded Successfully!");
+                document.getElementById('tenantModal').classList.add('hidden');
+                loadTenants();
+            } else {
+                const err = await res.json();
+                alert("Error: " + err.detail);
+            }
+        }
+
+        async function deleteTenant(id) {
+            if (!confirm("WARNING: This will delete the tenant and all their data. Proceed?")) return;
+            const res = await fetch(`/api/v1/admin/tenants/${id}`, {
+                method: 'DELETE',
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            if (res.ok) loadTenants();
+            else alert("Failed to delete.");
+        }
+
+        // --- EXISTING LOGIC (Workspace, Approvals, Users) ---
+        async function loadWorkspace() {
+            const res = await fetch('/api/v1/admin/my-tenants', { headers: { 'Authorization': `Bearer ${token}` }});
+            const data = await res.json();
+            const container = document.getElementById('tenantList');
+            if(data.length === 0) { container.innerHTML = `<p class="text-gray-500">No assigned projects.</p>`; return; }
+            container.innerHTML = data.map(t => `
+                <div class="glass-card p-6 rounded-xl relative hover:bg-gray-800/50 transition-all">
+                    <h3 class="font-bold text-white text-lg">${t.name}</h3>
+                    <p class="text-xs text-gray-500 mb-4">${t.status.replace(/_/g, ' ')}</p>
+                    <a href="/${t.slug}" target="_blank" class="block w-full text-center bg-gray-800 hover:bg-gray-700 text-gray-300 text-xs font-medium py-2 rounded border border-gray-700">Launch Demo</a>
+                </div>
+            `).join('');
+        }
+        async function loadApprovals() {
+            const res = await fetch('/api/v1/admin/approvals', { headers: { 'Authorization': `Bearer ${token}` }});
+            const items = await res.json();
+            if (items.length > 0) { document.getElementById('badge-count').innerText = items.length; document.getElementById('badge-count').classList.remove('hidden'); }
+            const tbody = document.getElementById('approvalList');
+            if (items.length === 0) { tbody.innerHTML = `<tr><td colspan="3" class="px-6 py-8 text-center text-gray-500">All caught up!</td></tr>`; return; }
+            tbody.innerHTML = items.map(item => `
+                <tr class="hover:bg-gray-800/50">
+                    <td class="px-6 py-4"><div class="text-white font-medium">${item.client_name}</div></td>
+                    <td class="px-6 py-4 text-xs">${item.modified_by}</td>
+                    <td class="px-6 py-4 text-right"><button onclick="processApproval('${item.tenant_id}', 'approve')" class="bg-green-600 hover:bg-green-500 text-white px-3 py-1.5 rounded text-xs font-medium">Approve</button></td>
+                </tr>
+            `).join('');
+        }
+        async function processApproval(id) {
+            if (!confirm("Confirm approval?")) return;
+            const res = await fetch(`/api/v1/admin/approve/${id}`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` }});
+            if (res.ok) { alert("Approved!"); loadApprovals(); }
+        }
+        async function loadUsers() {
+            const res = await fetch('/api/v1/admin/users', { headers: { 'Authorization': `Bearer ${token}` }});
+            const users = await res.json();
+            const tbody = document.getElementById('userList');
+            tbody.innerHTML = users.map(u => `
+                <tr class="hover:bg-gray-800/50">
+                    <td class="px-6 py-4"><div class="text-white font-medium">${u.email}</div></td>
+                    <td class="px-6 py-4"><span class="bg-purple-500/20 text-purple-300 px-2 py-1 rounded text-xs border border-purple-500/30">${u.role}</span></td>
+                    <td class="px-6 py-4 text-right"><button onclick="deleteUser('${u.uid}')" class="text-gray-500 hover:text-red-400"><i class="fa-solid fa-trash"></i></button></td>
+                </tr>
+            `).join('');
+        }
+        async function submitOnboarding() {
+            const payload = {
+                email: document.getElementById('newUserEmail').value,
+                password: document.getElementById('newUserPass').value,
+                role: document.getElementById('newUserRole').value,
+                assigned_tenants: document.getElementById('newUserTenants').value.split(',').map(s => s.trim())
+            };
+            const res = await fetch('/api/v1/admin/users', { method: 'POST', headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+            if (res.ok) { alert("User created!"); document.getElementById('userModal').classList.add('hidden'); loadUsers(); }
+        }
+        async function deleteUser(uid) {
+            if (!confirm("Delete user?")) return;
+            const res = await fetch(`/api/v1/admin/users/${uid}`, { method: 'DELETE', headers: { 'Authorization': `Bearer ${token}` }});
+            if (res.ok) loadUsers();
+        }
+    </script>
+</body>
+</html>

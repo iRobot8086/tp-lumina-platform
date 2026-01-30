@@ -1,0 +1,28 @@
+steps:
+  # Step 1: Build the container image
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['build', '-t', 'gcr.io/$PROJECT_ID/lumina-backend:$COMMIT_SHA', '.']
+
+  # Step 2: Push the image to Artifact Registry
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['push', 'gcr.io/$PROJECT_ID/lumina-backend:$COMMIT_SHA']
+
+  # Step 3: Deploy to Cloud Run
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    entrypoint: gcloud
+    args:
+      - 'run'
+      - 'deploy'
+      - 'lumina-service'
+      - '--image'
+      - 'gcr.io/$PROJECT_ID/lumina-backend:$COMMIT_SHA'
+      - '--region'
+      - 'us-central1'
+      - '--platform'
+      - 'managed'
+      - '--allow-unauthenticated' # Allows public access to your demo pages
+      - '--set-env-vars'
+      - 'GCP_STORAGE_BUCKET=lumina-assets'
+
+images:
+  - 'gcr.io/$PROJECT_ID/lumina-backend:$COMMIT_SHA'
