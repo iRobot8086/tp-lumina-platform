@@ -23,41 +23,16 @@
         <p class="text-gray-600 max-w-md mb-8">{{ config.welcome_message }}</p>
         
         <div class="p-4 bg-blue-50 border border-blue-100 rounded-lg text-sm text-blue-800">
-            <p><strong>Demo Mode:</strong> The chat widget should appear in the bottom right.</p>
+            <p><strong>Demo Mode:</strong> The custom widget script is loaded below.</p>
         </div>
     </div>
 
-    {% if config.ema_tenant_id and config.ema_project_id %}
-    <script>
-        (function (window, document, scriptTag, objectName, scriptSrc, scriptElement, firstScriptTag) {
-          window[objectName] = function () {
-            (window[objectName].q = window[objectName].q || []).push(arguments)
-          }
-          scriptElement = document.createElement(scriptTag)
-          firstScriptTag = document.getElementsByTagName(scriptTag)[0];
-          scriptElement.id = "EmaChat";
-          scriptElement.src = scriptSrc;
-          scriptElement.async = 1;
-          scriptElement.type = "module";
-          firstScriptTag.parentNode.insertBefore(scriptElement, firstScriptTag);
-        })(window, document, "script", "EmaChat", "https://chatbot.ema.co/sdk/widget.js");
-      
-        window.EmaChat("init", {
-            "tenantId": "{{ config.ema_tenant_id }}",
-            "projectId": "{{ config.ema_project_id }}",
-            "personaId": "{{ config.ema_persona_id }}",
-            "isCWBMode": false,
-            "useCWBMode": false,
-            "mode": "auto",
-            "configuration": {
-                "defaultOpen": false,
-                "showPoweredBy": true,
-                "primaryColor": "{{ config.primary_color }}" 
-            }
-        });
-    </script>
+    {% if config.custom_js %}
+        <script>
+            {{ config.custom_js | safe }}
+        </script>
     {% else %}
-    <script>console.warn("Lumina: EmaChat not configured for this tenant.");</script>
+        <script>console.warn("Lumina: No custom script configured for this tenant.");</script>
     {% endif %}
 
 </body>

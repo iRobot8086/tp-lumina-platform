@@ -3,7 +3,6 @@ from typing import Optional
 from datetime import datetime
 
 class ApprovalStatus:
-    """Helper class to keep status strings consistent."""
     DRAFT = "draft"
     PENDING_ADMIN = "pending_admin_review"
     PENDING_SUPER_ADMIN = "pending_super_admin_review"
@@ -14,9 +13,10 @@ class ChatbotConfig(BaseModel):
     primary_color: str = "#10B981"
     welcome_message: str = "Hello! How can I help you?"
     logo_url: Optional[str] = None
-    ema_tenant_id: Optional[str] = ""    
-    ema_project_id: Optional[str] = ""   
-    ema_persona_id: Optional[str] = ""   
+    
+    # --- CHANGED: Raw JavaScript Storage ---
+    # This stores the exact code snippet you paste in the dashboard
+    custom_js: Optional[str] = "" 
 
 class Tenant(BaseModel):
     tenant_id: str

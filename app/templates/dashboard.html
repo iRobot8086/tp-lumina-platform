@@ -55,7 +55,6 @@
     </aside>
 
     <main class="flex-1 overflow-y-auto relative p-8">
-        
         <section id="view-workspace" class="space-y-6">
             <h1 class="text-2xl font-bold text-white">My Projects</h1>
             <div id="tenantList" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"></div>
@@ -84,7 +83,7 @@
                         <tr>
                             <th class="px-6 py-4">Client</th>
                             <th class="px-6 py-4">Slug / ID</th>
-                            <th class="px-6 py-4">Ema Config</th>
+                            <th class="px-6 py-4">Config Status</th>
                             <th class="px-6 py-4 text-right">Actions</th>
                         </tr>
                     </thead>
@@ -140,11 +139,10 @@
                 <textarea id="tWelcome" rows="2" class="w-full bg-gray-800 border border-gray-700 rounded p-2.5 text-white">Hello! How can I help you?</textarea>
 
                 <hr class="border-gray-700 my-4">
-                <h4 class="text-sm font-bold text-gray-300">EmaChat Configuration</h4>
+                <h4 class="text-sm font-bold text-gray-300">Custom Widget Script</h4>
                 <div class="space-y-2">
-                    <input type="text" id="tEmaTenant" placeholder="Tenant ID (e.g. b084...)" class="w-full bg-gray-800 border border-gray-700 rounded p-2.5 text-white font-mono text-xs">
-                    <input type="text" id="tEmaProject" placeholder="Project ID (e.g. eln2...)" class="w-full bg-gray-800 border border-gray-700 rounded p-2.5 text-white font-mono text-xs">
-                    <input type="text" id="tEmaPersona" placeholder="Persona ID (e.g. 2786...)" class="w-full bg-gray-800 border border-gray-700 rounded p-2.5 text-white font-mono text-xs">
+                    <label class="block text-xs font-medium text-gray-400">Paste your EmaChat or other widget code here:</label>
+                    <textarea id="tCustomJS" rows="8" class="w-full bg-gray-800 border border-gray-700 rounded p-2.5 text-white font-mono text-xs" placeholder="(function(window, document...) { ... })(...);"></textarea>
                 </div>
             </div>
             <div class="mt-6 flex gap-3 justify-end">
@@ -175,7 +173,7 @@
     </div>
 
     <script>
-        // --- FIREBASE CONFIG (Required) ---
+        // --- FIREBASE CONFIG ---
         const firebaseConfig = {
             apiKey: "AIzaSyBzMpQuo3FKt7RikvSDihfqGPd7YfQl-OY",
             authDomain: "tp-lumina-485907.firebaseapp.com",
@@ -189,7 +187,6 @@
         const auth = firebase.auth();
         let token = null;
 
-        // Sync Colors
         document.getElementById('tColor').addEventListener('input', e => document.getElementById('tColorHex').value = e.target.value);
         document.getElementById('tColorHex').addEventListener('input', e => document.getElementById('tColor').value = e.target.value);
 
@@ -255,7 +252,7 @@
                     <td class="px-6 py-4"><div class="text-white font-medium">${t.client_name}</div></td>
                     <td class="px-6 py-4"><div class="text-xs text-gray-400">/${t.slug}</div></td>
                     <td class="px-6 py-4">
-                        ${t.live_config?.ema_tenant_id ? '<span class="text-green-400 text-xs">Configured</span>' : '<span class="text-red-400 text-xs">Missing</span>'}
+                        ${t.live_config?.custom_js ? '<span class="text-green-400 text-xs">Script Active</span>' : '<span class="text-gray-500 text-xs">No Script</span>'}
                     </td>
                     <td class="px-6 py-4 text-right space-x-2">
                         <button onclick="deleteTenant('${t.tenant_id}')" class="text-gray-500 hover:text-red-400"><i class="fa-solid fa-trash"></i></button>
@@ -272,9 +269,8 @@
                 bot_name: document.getElementById('tBotName').value,
                 welcome_message: document.getElementById('tWelcome').value,
                 primary_color: document.getElementById('tColorHex').value,
-                ema_tenant_id: document.getElementById('tEmaTenant').value,
-                ema_project_id: document.getElementById('tEmaProject').value,
-                ema_persona_id: document.getElementById('tEmaPersona').value
+                // --- CAPTURE RAW JS ---
+                custom_js: document.getElementById('tCustomJS').value
             };
             const res = await fetch('/api/v1/admin/tenants', {
                 method: 'POST',
@@ -291,7 +287,7 @@
             if (res.ok) loadTenants();
         }
 
-        // --- Other Loaders (Approvals, Users) kept brief ---
+        // --- Other functions (approvals, users) ---
         async function loadApprovals() {
             const res = await fetch('/api/v1/admin/approvals', { headers: { 'Authorization': `Bearer ${token}` }});
             const items = await res.json();

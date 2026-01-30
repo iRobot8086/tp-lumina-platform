@@ -8,10 +8,12 @@ from app.api.v1.endpoints.auth import get_current_user
 from app.db.firestore import db
 from app.services.workflow import WorkflowService
 from app.core.rbac import check_permission, Action
+import logging
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
-# --- DASHBOARD & WORKSPACE ---
 
 @router.get("/my-tenants")
 async def get_user_tenants(user: dict = Depends(get_current_user)):
@@ -35,7 +37,7 @@ async def get_user_tenants(user: dict = Depends(get_current_user)):
             "slug": t.get("slug"),
             "status": t.get("approval_status", "draft"),
             "tenant_id": t.get("tenant_id"),
-            "live_config": t.get("live_config") # Include config for UI details
+            "live_config": t.get("live_config")
         })
     return tenants_list
 
@@ -59,7 +61,7 @@ async def list_pending_approvals(user: dict = Depends(get_current_user)):
         })
     return pending
 
-# --- WORKFLOW ---
+# --- WORKFLOW ROUTES ---
 
 @router.post("/submit-draft/{tenant_id}")
 async def submit_draft(tenant_id: str, config: ChatbotConfig, user: dict = Depends(get_current_user)):
@@ -73,7 +75,7 @@ async def approve_config(tenant_id: str, user: dict = Depends(get_current_user))
          raise HTTPException(status_code=403, detail="Permission denied")
     return await WorkflowService.process_approval(tenant_id, user["role"], user["email"])
 
-# --- TENANT MANAGEMENT (SUPER ADMIN) ---
+# --- TENANT MANAGEMENT ---
 
 @router.get("/tenants")
 async def list_all_tenants(current_user: dict = Depends(get_current_user)):
@@ -83,7 +85,7 @@ async def list_all_tenants(current_user: dict = Depends(get_current_user)):
 
 @router.post("/tenants")
 async def create_tenant(payload: dict, current_user: dict = Depends(get_current_user)):
-    """Onboard a new Tenant with EmaChat Config."""
+    """Onboard Tenant with Raw Custom JS."""
     if not check_permission(current_user["role"], Action.MANAGE_USERS):
         raise HTTPException(status_code=403, detail="Permission denied")
 
@@ -99,10 +101,9 @@ async def create_tenant(payload: dict, current_user: dict = Depends(get_current_
         bot_name=payload.get("bot_name", "My Bot"),
         primary_color=payload.get("primary_color", "#10B981"),
         welcome_message=payload.get("welcome_message", "Hello!"),
-        # --- NEW FIELDS ---
-        ema_tenant_id=payload.get("ema_tenant_id", ""),
-        ema_project_id=payload.get("ema_project_id", ""),
-        ema_persona_id=payload.get("ema_persona_id", "")
+        
+        # --- NEW: Capture raw JS from payload ---
+        custom_js=payload.get("custom_js", "") 
     )
 
     new_tenant = Tenant(
@@ -152,6 +153,7 @@ async def onboard_user(user_data: dict, current_user: dict = Depends(get_current
         db.collection("users").document(new_user.uid).set(new_user.dict())
         return {"message": "User created", "uid": new_user.uid}
     except Exception as e:
+        logger.error(f"Onboarding failed: {e}")
         raise HTTPException(status_code=400, detail=str(e))
 
 @router.delete("/users/{uid}")
@@ -163,4 +165,5 @@ async def offboard_user(uid: str, current_user: dict = Depends(get_current_user)
         db.collection("users").document(uid).delete()
         return {"message": "User deleted"}
     except Exception as e:
+        logger.error(f"Deletion failed: {e}")
         raise HTTPException(status_code=400, detail=str(e))

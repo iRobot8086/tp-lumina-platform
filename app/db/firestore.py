@@ -2,8 +2,8 @@ import os
 import firebase_admin
 from firebase_admin import credentials, firestore
 
-PROJECT_ID = "tp-lumina-485907"
-SA_KEY_PATH = "../../service-account.json"
+PROJECT_ID = os.getenv("GCP_PROJECT_ID")
+SA_KEY_PATH = os.getenv("GOOGLE_APPLICATION_CREDENTIALS")
 
 def initialize_db():
     if not firebase_admin._apps:
