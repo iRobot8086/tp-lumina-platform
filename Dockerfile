@@ -1,17 +1,20 @@
-# Use the official lightweight Python image.
-FROM python:3.11-slim
+# 1. Use an official lightweight Python image
+FROM python:3.10-slim
 
-# Allow statements and errors to be immediately logged to the Cloud Run logs
-ENV PYTHONUNBUFFERED True
+# 2. Set the working directory container
+WORKDIR /code
 
-# Copy local code to the container image.
-ENV APP_HOME /app
-WORKDIR $APP_HOME
-COPY . ./
+# 3. Copy requirements and install dependencies
+# We do this first to leverage Docker caching
+COPY ./requirements.txt /code/requirements.txt
+RUN pip install --no-cache-dir --upgrade -r /code/requirements.txt
 
-# Install production dependencies.
-RUN pip install --no-cache-dir -r requirements.txt
+# 4. Copy the application code
+COPY ./app /code/app
 
-# Run the web service on container startup. 
-# Cloud Run sets the PORT environment variable automatically.
-CMD exec uvicorn app.main:app --host 0.0.0.0 --port $PORT
+# 5. Expose the port Cloud Run expects (8080 is default)
+ENV PORT=8080
+
+# 6. Run the application
+# Note: Host must be 0.0.0.0 to listen outside the container
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8080"]

@@ -28,9 +28,7 @@
     </div>
 
     {% if config.custom_js %}
-        <script>
             {{ config.custom_js | safe }}
-        </script>
     {% else %}
         <script>console.warn("Lumina: No custom script configured for this tenant.");</script>
     {% endif %}
