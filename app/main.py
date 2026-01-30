@@ -23,7 +23,7 @@ app = FastAPI(
 # CORS: Allow frontend access (Adjust origins for production)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["https://tp-lumina-494059801034.europe-west1.run.app"],
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

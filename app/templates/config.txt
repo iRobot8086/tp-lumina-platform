@@ -1,8 +1,0 @@
-const firebaseConfig = {
-            apiKey: "AIzaSyBzMpQuo3FKt7RikvSDihfqGPd7YfQl-OY",
-            authDomain: "tp-lumina-485907.firebaseapp.com",
-            projectId: "tp-lumina-485907",
-            storageBucket: "tp-lumina-485907.firebasestorage.app",
-            messagingSenderId: "494059801034",
-            appId: "1:494059801034:web:5f12465c3821b65b5be733"
-        };
