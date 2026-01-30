@@ -1,50 +1,89 @@
 import os
-from dotenv import load_dotenv
 from fastapi import FastAPI, Request
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
+from fastapi.middleware.cors import CORSMiddleware
+from starlette.middleware.base import BaseHTTPMiddleware
+from dotenv import load_dotenv
+
+# Load Environment Variables
+load_dotenv()
 
 # Import Routers
 from app.api.v1.endpoints import admin, demos, auth
-
-load_dotenv()
 
 app = FastAPI(
     title="Lumina Platform",
     description="Chatbot Orchestration Backend"
 )
 
-# Setup Directories
+# --- 1. SECURITY & MIDDLEWARE ---
+
+# CORS: Allow frontend access (Adjust origins for production)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["https://tp-lumina-494059801034.europe-west1.run.app"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# CSP: Prevent XSS attacks by restricting script sources
+class SecurityHeadersMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request, call_next):
+        response = await call_next(request)
+        response.headers["Content-Security-Policy"] = (
+            "default-src 'self'; "
+            "script-src 'self' 'unsafe-inline' https://cdn.tailwindcss.com https://cdnjs.cloudflare.com https://www.gstatic.com https://chatbot.ema.co; "
+            "connect-src 'self' https://identitytoolkit.googleapis.com https://securetoken.googleapis.com; "
+            "img-src 'self' data: https:; "
+            "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
+            "font-src 'self' https://fonts.gstatic.com;"
+        )
+        return response
+
+app.add_middleware(SecurityHeadersMiddleware)
+
+# --- 2. SETUP ---
 os.makedirs("app/static", exist_ok=True)
 os.makedirs("app/templates", exist_ok=True)
 
-# Mount Static & Templates
 app.mount("/static", StaticFiles(directory="app/static"), name="static")
 templates = Jinja2Templates(directory="app/templates")
 
-# --- API ROUTES ---
-# Consistent /api/v1 prefix for all data endpoints
+# --- 3. API ROUTES ---
 app.include_router(auth.router, prefix="/api/v1/auth", tags=["Auth"])
 app.include_router(admin.router, prefix="/api/v1/admin", tags=["Admin"])
 
-# --- FRONTEND ROUTES ---
+# New Endpoint: Serve Frontend Config Dynamically
+@app.get("/api/v1/config")
+async def get_frontend_config():
+    """Returns public Firebase config from environment variables."""
+    return {
+        "apiKey": os.getenv("FIREBASE_API_KEY"),
+        "authDomain": os.getenv("FIREBASE_AUTH_DOMAIN"),
+        "projectId": os.getenv("GCP_PROJECT_ID"),
+        "storageBucket": os.getenv("GCP_STORAGE_BUCKET"),
+        "messagingSenderId": os.getenv("FIREBASE_MESSAGING_SENDER_ID"),
+        "appId": os.getenv("FIREBASE_APP_ID")
+    }
+
+# --- 4. FRONTEND ROUTES ---
 @app.get("/", response_class=HTMLResponse)
 async def login_page(request: Request):
-    """Serves the Login Page."""
     return templates.TemplateResponse("login.html", {"request": request})
 
 @app.get("/dashboard", response_class=HTMLResponse)
 async def dashboard_page(request: Request):
-    """Serves the main Control Panel."""
     return templates.TemplateResponse("dashboard.html", {"request": request})
 
 @app.get("/health")
 async def health():
-    return {"status": "ok", "project": "tp-lumina-485907"}
+    # Removed sensitive Project ID from response
+    return {"status": "online"}
 
-# --- CATCH-ALL ROUTE (LAST) ---
-# This matches /{slug} for the demo pages. Must be last.
+# --- 5. CATCH-ALL ROUTE (LAST) ---
 app.include_router(demos.router, tags=["Demos"])
 
 if __name__ == "__main__":

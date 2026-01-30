@@ -17,9 +17,8 @@
     </style>
 </head>
 <body class="bg-gray-900 text-gray-100 flex h-screen overflow-hidden">
-
     <aside class="w-64 glass flex-shrink-0 flex flex-col justify-between border-r border-gray-800 z-20">
-        <div>
+       <div>
             <div class="h-16 flex items-center px-6 border-b border-gray-800">
                 <span class="font-bold text-lg tracking-wide">Lumina</span>
             </div>
@@ -173,49 +172,64 @@
     </div>
 
     <script>
-        // --- FIREBASE CONFIG ---
-        const firebaseConfig = {
-            apiKey: "AIzaSyBzMpQuo3FKt7RikvSDihfqGPd7YfQl-OY",
-            authDomain: "tp-lumina-485907.firebaseapp.com",
-            projectId: "tp-lumina-485907",
-            storageBucket: "tp-lumina-485907.firebasestorage.app",
-            messagingSenderId: "494059801034",
-            appId: "1:494059801034:web:5f12465c3821b65b5be733"
-        };
+        // --- UPDATED SCRIPT ---
         
-        if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
-        const auth = firebase.auth();
+        let auth = null;
         let token = null;
 
+        // Initialize App securely
+        async function initApp() {
+            try {
+                // Fetch public config from backend
+                const response = await fetch('/api/v1/config');
+                const firebaseConfig = await response.json();
+                
+                if (!firebase.apps.length) {
+                    firebase.initializeApp(firebaseConfig);
+                }
+                
+                auth = firebase.auth();
+                setupAuthListener();
+
+            } catch (e) {
+                console.error("Failed to initialize app config", e);
+            }
+        }
+
+        // Color Sync
         document.getElementById('tColor').addEventListener('input', e => document.getElementById('tColorHex').value = e.target.value);
         document.getElementById('tColorHex').addEventListener('input', e => document.getElementById('tColor').value = e.target.value);
 
-        auth.onAuthStateChanged(async (user) => {
-            if (!user) {
-                if (!new URLSearchParams(window.location.search).has('force_login')) window.location.href = "/?force_login=true";
-                return;
-            }
-            document.getElementById('userEmail').innerText = user.email;
-            document.getElementById('userAvatar').innerText = user.email.charAt(0).toUpperCase();
-            token = await user.getIdToken();
-
-            try {
-                const res = await fetch('/api/v1/auth/me', { headers: { 'Authorization': `Bearer ${token}` }});
-                const profile = await res.json();
-                document.getElementById('userRole').innerText = profile.role.replace('_', ' ');
-
-                if (['admin', 'super_admin'].includes(profile.role)) {
-                    document.getElementById('admin-nav').classList.remove('hidden');
-                    loadApprovals();
+        function setupAuthListener() {
+            auth.onAuthStateChanged(async (user) => {
+                if (!user) {
+                    const urlParams = new URLSearchParams(window.location.search);
+                    if (!urlParams.has('force_login')) window.location.href = "/?force_login=true";
+                    return;
                 }
-                if (profile.role === 'super_admin') {
-                    document.getElementById('nav-users').classList.remove('hidden');
-                    document.getElementById('nav-tenants').classList.remove('hidden');
-                }
-                loadWorkspace();
-            } catch (e) { console.error("Profile load failed", e); }
-        });
+                document.getElementById('userEmail').innerText = user.email;
+                document.getElementById('userAvatar').innerText = user.email.charAt(0).toUpperCase();
+                token = await user.getIdToken();
 
+                try {
+                    const res = await fetch('/api/v1/auth/me', { headers: { 'Authorization': `Bearer ${token}` }});
+                    const profile = await res.json();
+                    document.getElementById('userRole').innerText = profile.role.replace('_', ' ');
+
+                    if (['admin', 'super_admin'].includes(profile.role)) {
+                        document.getElementById('admin-nav').classList.remove('hidden');
+                        loadApprovals();
+                    }
+                    if (profile.role === 'super_admin') {
+                        document.getElementById('nav-users').classList.remove('hidden');
+                        document.getElementById('nav-tenants').classList.remove('hidden');
+                    }
+                    loadWorkspace();
+                } catch (e) { console.error("Profile load failed", e); }
+            });
+        }
+
+        // --- CORE FUNCTIONS (Unchanged logic) ---
         function switchView(viewName) {
             ['workspace', 'approvals', 'users', 'tenants'].forEach(v => {
                 document.getElementById(`view-${v}`)?.classList.add('hidden');
@@ -269,7 +283,6 @@
                 bot_name: document.getElementById('tBotName').value,
                 welcome_message: document.getElementById('tWelcome').value,
                 primary_color: document.getElementById('tColorHex').value,
-                // --- CAPTURE RAW JS ---
                 custom_js: document.getElementById('tCustomJS').value
             };
             const res = await fetch('/api/v1/admin/tenants', {
@@ -287,7 +300,6 @@
             if (res.ok) loadTenants();
         }
 
-        // --- Other functions (approvals, users) ---
         async function loadApprovals() {
             const res = await fetch('/api/v1/admin/approvals', { headers: { 'Authorization': `Bearer ${token}` }});
             const items = await res.json();
@@ -311,6 +323,9 @@
             document.getElementById('userModal').classList.add('hidden'); loadUsers();
         }
         async function deleteUser(uid) { if(confirm("Delete?")) await fetch(`/api/v1/admin/users/${uid}`, { method: 'DELETE', headers: { 'Authorization': `Bearer ${token}` }}); loadUsers(); }
+
+        // Boot App
+        initApp();
     </script>
 </body>
 </html>
