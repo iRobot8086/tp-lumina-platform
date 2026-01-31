@@ -125,7 +125,7 @@ async def upload_avatar(file: UploadFile = File(...), current_user: dict = Depen
 async def request_access(request_data: AccessRequest):
     """
     Public endpoint for users to request access.
-    Triggers notification to abcd@xyx.com (Logged).
+    Triggers notification to Logged.
     """
     # 1. Check duplication in Auth
     try:
