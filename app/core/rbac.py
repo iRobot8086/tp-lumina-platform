@@ -6,7 +6,8 @@ class UserRole(str, Enum):
     SUPER_ADMIN = "super_admin"   # Can publish to live, manage users
     ADMIN = "admin"               # Can approve drafts -> super_admin
     CONTRIBUTOR = "contributor"   # Can edit drafts -> admin
-    VIEWER = "viewer"             # Read-only access
+    USER = "user"             # Read-only access
+    SUPER_USER = "super_user"
 
 # --- 2. Define the Actions (Privileges) ---
 class Action(str, Enum):
@@ -48,9 +49,14 @@ RBAC_POLICY: Dict[UserRole, List[Action]] = {
         Action.SUBMIT_REVIEW
     ],
 
-    # Viewer: Read-only
-    UserRole.VIEWER: [
+    # USER: Read-only
+    UserRole.USER: [
         Action.VIEW_DASHBOARD
+    ],
+     # SUPER USER: Read, and Submit Requests
+    UserRole.SUPER_USER: [
+        Action.VIEW_DASHBOARD,
+        Action.EDIT_DRAFT
     ]
 }
 
