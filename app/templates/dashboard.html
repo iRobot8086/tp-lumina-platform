@@ -14,50 +14,118 @@
         .glass { background: rgba(17, 24, 39, 0.7); backdrop-filter: blur(10px); border: 1px solid rgba(255, 255, 255, 0.1); }
         .glass-card { background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.1); }
         .sidebar-link.active { background: rgba(139, 92, 246, 0.2); border-right: 3px solid #8B5CF6; color: white; }
+        /* Scrollbar styling for notification panel */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: #1f2937; }
+        ::-webkit-scrollbar-thumb { background: #4b5563; border-radius: 3px; }
     </style>
 </head>
 <body class="bg-gray-900 text-gray-100 flex h-screen overflow-hidden">
 
     <aside class="w-64 glass flex-shrink-0 flex flex-col justify-between border-r border-gray-800 z-20">
         <div>
-            <div class="h-16 flex items-center px-6 border-b border-gray-800">
+            <div class="h-16 flex items-center justify-between px-6 border-b border-gray-800">
                 <span class="font-bold text-lg tracking-wide">Lumina</span>
+                
+                <div class="relative">
+                    <button onclick="toggleNotifications()" class="text-gray-400 hover:text-white relative focus:outline-none">
+                        <i class="fa-solid fa-bell"></i>
+                        <span id="notif-badge" class="hidden absolute -top-1 -right-1 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-gray-900"></span>
+                    </button>
+                    <div id="notifPanel" class="hidden absolute left-full top-0 ml-4 w-72 glass rounded-xl shadow-2xl border border-gray-700 overflow-hidden z-50">
+                        <div class="px-4 py-3 border-b border-gray-700 flex justify-between items-center bg-gray-900/50">
+                            <h3 class="text-xs font-bold text-white uppercase tracking-wider">Notifications</h3>
+                            <button onclick="loadNotifications()" class="text-[10px] text-gray-400 hover:text-white"><i class="fa-solid fa-rotate"></i></button>
+                        </div>
+                        <div id="notifList" class="max-h-64 overflow-y-auto divide-y divide-gray-800">
+                            <div class="p-4 text-center text-xs text-gray-500">Loading...</div>
+                        </div>
+                    </div>
+                </div>
             </div>
+
             <nav class="mt-6 px-4 space-y-2">
                 <button onclick="switchView('workspace')" id="nav-workspace" class="sidebar-link active w-full flex items-center px-4 py-3 text-sm font-medium text-gray-400 rounded-r-lg hover:bg-gray-800 hover:text-white transition-colors">
                     <i class="fa-solid fa-grid-2 w-6"></i> My Workspace
                 </button>
+                
                 <div id="admin-nav" class="hidden pt-4 mt-4 border-t border-gray-800">
                     <p class="px-4 text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Control Panel</p>
+                    
                     <button onclick="switchView('approvals')" id="nav-approvals" class="sidebar-link w-full flex items-center px-4 py-3 text-sm font-medium text-gray-400 rounded-r-lg hover:bg-gray-800 hover:text-white transition-colors">
                         <i class="fa-solid fa-list-check w-6"></i> Approvals
                         <span id="badge-count" class="hidden ml-auto bg-purple-600 text-white text-[10px] px-2 py-0.5 rounded-full">0</span>
                     </button>
+                    
                     <button onclick="switchView('tenants')" id="nav-tenants" class="hidden sidebar-link w-full flex items-center px-4 py-3 text-sm font-medium text-gray-400 rounded-r-lg hover:bg-gray-800 hover:text-white transition-colors">
                         <i class="fa-solid fa-building w-6"></i> Tenants
                     </button>
+                    
                     <button onclick="switchView('users')" id="nav-users" class="hidden sidebar-link w-full flex items-center px-4 py-3 text-sm font-medium text-gray-400 rounded-r-lg hover:bg-gray-800 hover:text-white transition-colors">
                         <i class="fa-solid fa-users-gear w-6"></i> Users
+                    </button>
+
+                    <button onclick="switchView('logs')" id="nav-logs" class="hidden sidebar-link w-full flex items-center px-4 py-3 text-sm font-medium text-gray-400 rounded-r-lg hover:bg-gray-800 hover:text-white transition-colors">
+                        <i class="fa-solid fa-clock-rotate-left w-6"></i> Activity Log
                     </button>
                 </div>
             </nav>
         </div>
+        
         <div class="p-4 border-t border-gray-800">
-            <div class="flex items-center gap-3 mb-3">
-                <div class="w-8 h-8 rounded-full bg-gray-700 flex items-center justify-center text-xs" id="userAvatar">U</div>
+            <div onclick="openProfileModal()" class="flex items-center gap-3 mb-3 cursor-pointer hover:bg-gray-800 p-2 rounded-lg transition-colors group">
+                <div class="w-8 h-8 rounded-full bg-gray-700 flex items-center justify-center text-xs overflow-hidden border border-gray-600 group-hover:border-gray-400 transition-colors" id="userAvatar">
+                    <span id="userInitials">U</span>
+                    <img id="userImg" src="" class="w-full h-full object-cover hidden">
+                </div>
                 <div class="overflow-hidden">
-                    <p class="text-xs font-medium text-white truncate" id="userEmail">Loading...</p>
+                    <p class="text-xs font-medium text-white truncate" id="userDisplayName">Loading...</p>
                     <p class="text-[10px] text-gray-500 uppercase" id="userRole"></p>
                 </div>
+                <i class="fa-solid fa-gear text-gray-500 text-xs ml-auto group-hover:text-white transition-colors"></i>
             </div>
             <button onclick="firebase.auth().signOut()" class="w-full text-xs bg-gray-800 hover:bg-gray-700 text-gray-300 py-2 rounded border border-gray-700 transition-colors">Sign Out</button>
         </div>
     </aside>
 
-    <main class="flex-1 overflow-y-auto relative p-8">
+    <main class="flex-1 overflow-y-auto relative p-8 scroll-smooth">
+        
         <section id="view-workspace" class="space-y-6">
-            <h1 class="text-2xl font-bold text-white">My Projects</h1>
-            <div id="tenantList" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"></div>
+            <h1 class="text-2xl font-bold text-white mb-6">Dashboard Overview</h1>
+            
+            <div id="stats-row" class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                <div class="glass-card p-6 rounded-xl flex items-center justify-between">
+                    <div>
+                        <p class="text-xs text-gray-400 uppercase tracking-wider font-semibold">Active Projects</p>
+                        <h3 id="stat-projects" class="text-3xl font-bold text-white mt-1">0</h3>
+                    </div>
+                    <div class="w-12 h-12 rounded-full bg-blue-500/20 text-blue-400 flex items-center justify-center border border-blue-500/30">
+                        <i class="fa-solid fa-folder-open text-xl"></i>
+                    </div>
+                </div>
+                <div id="card-approvals" class="glass-card p-6 rounded-xl flex items-center justify-between hidden">
+                    <div>
+                        <p class="text-xs text-gray-400 uppercase tracking-wider font-semibold">Pending Reviews</p>
+                        <h3 id="stat-approvals" class="text-3xl font-bold text-white mt-1">0</h3>
+                    </div>
+                    <div class="w-12 h-12 rounded-full bg-yellow-500/20 text-yellow-400 flex items-center justify-center border border-yellow-500/30">
+                        <i class="fa-solid fa-clock text-xl"></i>
+                    </div>
+                </div>
+                <div id="card-users" class="glass-card p-6 rounded-xl flex items-center justify-between hidden">
+                    <div>
+                        <p class="text-xs text-gray-400 uppercase tracking-wider font-semibold">Total Users</p>
+                        <h3 id="stat-users" class="text-3xl font-bold text-white mt-1">0</h3>
+                    </div>
+                    <div class="w-12 h-12 rounded-full bg-purple-500/20 text-purple-400 flex items-center justify-center border border-purple-500/30">
+                        <i class="fa-solid fa-users text-xl"></i>
+                    </div>
+                </div>
+            </div>
+
+            <h2 class="text-xl font-bold text-white mt-8 mb-4">My Projects</h2>
+            <div id="tenantList" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                </div>
         </section>
 
         <section id="view-approvals" class="hidden space-y-6">
@@ -65,7 +133,11 @@
             <div class="glass rounded-xl overflow-hidden">
                 <table class="w-full text-left text-sm text-gray-400">
                     <thead class="bg-gray-800 text-gray-200">
-                        <tr><th class="px-6 py-4">Project</th><th class="px-6 py-4">Submitted By</th><th class="px-6 py-4 text-right">Actions</th></tr>
+                        <tr>
+                            <th class="px-6 py-4">Project</th>
+                            <th class="px-6 py-4">Submitted By</th>
+                            <th class="px-6 py-4 text-right">Actions</th>
+                        </tr>
                     </thead>
                     <tbody id="approvalList" class="divide-y divide-gray-800"></tbody>
                 </table>
@@ -74,8 +146,16 @@
 
         <section id="view-tenants" class="hidden space-y-6">
             <div class="flex justify-between items-center">
-                <h1 class="text-2xl font-bold text-white">Tenant Management</h1>
-                <button onclick="document.getElementById('tenantModal').classList.remove('hidden')" class="bg-purple-600 hover:bg-purple-500 text-white px-4 py-2 rounded-lg text-sm shadow-lg shadow-purple-900/20">+ Onboard Tenant</button>
+                <div class="flex items-center gap-4">
+                    <h1 class="text-2xl font-bold text-white">Tenant Management</h1>
+                    <label class="flex items-center gap-2 cursor-pointer bg-gray-800 px-3 py-1.5 rounded-full border border-gray-700 hover:border-gray-500 transition">
+                        <input type="checkbox" id="showArchivedTenants" class="w-4 h-4 rounded bg-gray-700 border-gray-600 text-purple-600 focus:ring-purple-500" onchange="loadTenants()">
+                        <span class="text-xs text-gray-400">Show Archived</span>
+                    </label>
+                </div>
+                <button onclick="openCreateModal()" class="bg-purple-600 hover:bg-purple-500 text-white px-4 py-2 rounded-lg text-sm shadow-lg shadow-purple-900/20 flex items-center gap-2">
+                    <i class="fa-solid fa-plus"></i> Onboard Tenant
+                </button>
             </div>
             <div class="glass rounded-xl overflow-hidden">
                 <table class="w-full text-left text-sm text-gray-400">
@@ -83,7 +163,7 @@
                         <tr>
                             <th class="px-6 py-4">Client</th>
                             <th class="px-6 py-4">Slug / ID</th>
-                            <th class="px-6 py-4">Config Status</th>
+                            <th class="px-6 py-4">Status</th>
                             <th class="px-6 py-4 text-right">Actions</th>
                         </tr>
                     </thead>
@@ -94,15 +174,52 @@
 
         <section id="view-users" class="hidden space-y-6">
             <div class="flex justify-between items-center">
-                <h1 class="text-2xl font-bold text-white">Access Control</h1>
-                <button onclick="document.getElementById('userModal').classList.remove('hidden')" class="bg-purple-600 hover:bg-purple-500 text-white px-4 py-2 rounded-lg text-sm">+ Add User</button>
+                <div class="flex items-center gap-4">
+                    <h1 class="text-2xl font-bold text-white">Access Control</h1>
+                    <label class="flex items-center gap-2 cursor-pointer bg-gray-800 px-3 py-1.5 rounded-full border border-gray-700 hover:border-gray-500 transition">
+                        <input type="checkbox" id="showArchivedUsers" class="w-4 h-4 rounded bg-gray-700 border-gray-600 text-purple-600 focus:ring-purple-500" onchange="loadUsers()">
+                        <span class="text-xs text-gray-400">Show Archived</span>
+                    </label>
+                </div>
+                <button onclick="document.getElementById('userModal').classList.remove('hidden')" class="bg-purple-600 hover:bg-purple-500 text-white px-4 py-2 rounded-lg text-sm shadow-lg shadow-purple-900/20 flex items-center gap-2">
+                    <i class="fa-solid fa-user-plus"></i> Add User
+                </button>
             </div>
             <div class="glass rounded-xl overflow-hidden">
                 <table class="w-full text-left text-sm text-gray-400">
                     <thead class="bg-gray-800 text-gray-200">
-                        <tr><th class="px-6 py-4">User</th><th class="px-6 py-4">Role</th><th class="px-6 py-4 text-right">Actions</th></tr>
+                        <tr>
+                            <th class="px-6 py-4">User</th>
+                            <th class="px-6 py-4">Role</th>
+                            <th class="px-6 py-4 text-right">Actions</th>
+                        </tr>
                     </thead>
                     <tbody id="userList" class="divide-y divide-gray-800"></tbody>
+                </table>
+            </div>
+        </section>
+
+        <section id="view-logs" class="hidden space-y-6">
+            <div class="flex justify-between items-center">
+                <h1 class="text-2xl font-bold text-white">System Activity Log</h1>
+                <button onclick="loadAuditLogs()" class="text-sm text-gray-400 hover:text-white flex items-center gap-2 bg-gray-800 px-3 py-1.5 rounded border border-gray-700">
+                    <i class="fa-solid fa-rotate-right"></i> Refresh
+                </button>
+            </div>
+            <div class="glass rounded-xl overflow-hidden">
+                <table class="w-full text-left text-sm text-gray-400">
+                    <thead class="bg-gray-800 text-gray-200">
+                        <tr>
+                            <th class="px-6 py-4">Time</th>
+                            <th class="px-6 py-4">User</th>
+                            <th class="px-6 py-4">Action</th>
+                            <th class="px-6 py-4">Target</th>
+                            <th class="px-6 py-4">Details</th>
+                        </tr>
+                    </thead>
+                    <tbody id="auditList" class="divide-y divide-gray-800">
+                        <tr><td colspan="5" class="px-6 py-4 text-center">Loading logs...</td></tr>
+                    </tbody>
                 </table>
             </div>
         </section>
@@ -110,22 +227,13 @@
 
     <div id="tenantModal" class="fixed inset-0 z-50 hidden bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
         <div class="glass w-full max-w-lg rounded-xl p-6 shadow-2xl bg-gray-900 border border-gray-700 max-h-[90vh] overflow-y-auto">
-            <h3 class="text-lg font-bold text-white mb-4">Onboard New Tenant</h3>
+            <h3 id="modalTitle" class="text-lg font-bold text-white mb-4">Onboard New Tenant</h3>
             <div class="space-y-4">
                 <div class="grid grid-cols-2 gap-4">
-                    <div>
-                        <label class="block text-xs font-medium text-gray-400 mb-1">Client Name</label>
-                        <input type="text" id="tName" placeholder="Acme Corp" class="w-full bg-gray-800 border border-gray-700 rounded p-2.5 text-white">
-                    </div>
-                    <div>
-                        <label class="block text-xs font-medium text-gray-400 mb-1">Tenant ID</label>
-                        <input type="text" id="tId" placeholder="acme-001" class="w-full bg-gray-800 border border-gray-700 rounded p-2.5 text-white">
-                    </div>
+                    <div><label class="block text-xs font-medium text-gray-400 mb-1">Client Name</label><input type="text" id="tName" class="w-full bg-gray-800 border border-gray-700 rounded p-2.5 text-white focus:border-purple-500 outline-none"></div>
+                    <div><label class="block text-xs font-medium text-gray-400 mb-1">Tenant ID</label><input type="text" id="tId" class="w-full bg-gray-800 border border-gray-700 rounded p-2.5 text-white focus:border-purple-500 outline-none"></div>
                 </div>
-                <div>
-                    <label class="block text-xs font-medium text-gray-400 mb-1">Slug (URL)</label>
-                    <input type="text" id="tSlug" placeholder="acme" class="w-full bg-gray-800 border border-gray-700 rounded p-2.5 text-white">
-                </div>
+                <div><label class="block text-xs font-medium text-gray-400 mb-1">Slug (URL)</label><input type="text" id="tSlug" class="w-full bg-gray-800 border border-gray-700 rounded p-2.5 text-white focus:border-purple-500 outline-none"></div>
                 
                 <hr class="border-gray-700 my-4">
                 <h4 class="text-sm font-bold text-gray-300">Appearance</h4>
@@ -170,8 +278,8 @@
             </div>
             
             <div class="mt-6 flex gap-3 justify-end">
-                <button onclick="document.getElementById('tenantModal').classList.add('hidden')" class="px-4 py-2 text-sm text-gray-400">Cancel</button>
-                <button onclick="submitTenant()" class="bg-purple-600 hover:bg-purple-500 text-white px-4 py-2 rounded-lg text-sm">Onboard</button>
+                <button onclick="document.getElementById('tenantModal').classList.add('hidden')" class="px-4 py-2 text-sm text-gray-400 hover:text-white">Cancel</button>
+                <button onclick="submitTenant()" class="bg-purple-600 hover:bg-purple-500 text-white px-4 py-2 rounded-lg text-sm transition-colors">Save</button>
             </div>
         </div>
     </div>
@@ -186,216 +294,569 @@
                     <option value="contributor">Contributor</option>
                     <option value="admin">Admin</option>
                     <option value="super_admin">Super Admin</option>
+                    <option value="super_user">Super User</option>
+                    <option value="user">User</option>
                 </select>
-                <input type="text" id="newUserTenants" placeholder="Tenants (comma separated)" class="w-full bg-gray-800 border border-gray-700 rounded p-2.5 text-white">
+                <input type="text" id="newUserTenants" placeholder="Tenants (comma separated IDs)" class="w-full bg-gray-800 border border-gray-700 rounded p-2.5 text-white">
             </div>
             <div class="mt-6 flex gap-3 justify-end">
-                <button onclick="document.getElementById('userModal').classList.add('hidden')" class="px-4 py-2 text-sm text-gray-400">Cancel</button>
+                <button onclick="document.getElementById('userModal').classList.add('hidden')" class="px-4 py-2 text-sm text-gray-400 hover:text-white">Cancel</button>
                 <button onclick="submitOnboarding()" class="bg-purple-600 hover:bg-purple-500 text-white px-4 py-2 rounded-lg text-sm">Create</button>
             </div>
         </div>
     </div>
 
+    <div id="roleModal" class="fixed inset-0 z-50 hidden bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+        <div class="glass w-full max-w-sm rounded-xl p-6 shadow-2xl bg-gray-900 border border-gray-700">
+            <h3 class="text-lg font-bold text-white mb-4">Change User Role</h3>
+            <p id="roleUserEmail" class="text-sm text-gray-400 mb-4 font-mono"></p>
+            <div class="space-y-4">
+                <label class="block text-xs font-medium text-gray-400 mb-1">New Role</label>
+                <select id="editUserRole" class="w-full bg-gray-800 border border-gray-700 rounded p-2.5 text-white focus:border-purple-500 outline-none">
+                    <option value="contributor">Contributor</option>
+                    <option value="admin">Admin</option>
+                    <option value="super_admin">Super Admin</option>
+                    <option value="super_user">Super User</option>
+                    <option value="user">User</option>
+                </select>
+            </div>
+            <div class="mt-6 flex gap-3 justify-end">
+                <button onclick="document.getElementById('roleModal').classList.add('hidden')" class="px-4 py-2 text-sm text-gray-400 hover:text-white">Cancel</button>
+                <button onclick="submitRoleChange()" class="bg-purple-600 hover:bg-purple-500 text-white px-4 py-2 rounded-lg text-sm">Update</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="profileModal" class="fixed inset-0 z-50 hidden bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+        <div class="glass w-full max-w-md rounded-xl p-6 shadow-2xl bg-gray-900 border border-gray-700">
+            <h3 class="text-lg font-bold text-white mb-6">Profile Settings</h3>
+            
+            <div class="flex border-b border-gray-700 mb-6">
+                <button onclick="switchProfileTab('general')" id="tab-general" class="pb-2 px-4 text-sm font-medium text-purple-400 border-b-2 border-purple-500 transition-colors">General</button>
+                <button onclick="switchProfileTab('security')" id="tab-security" class="pb-2 px-4 text-sm font-medium text-gray-400 hover:text-white transition-colors">Security</button>
+            </div>
+
+            <div id="p-general" class="space-y-4">
+                <div class="flex items-center gap-4">
+                    <div class="relative w-16 h-16 group">
+                        <div class="w-16 h-16 rounded-full bg-gray-700 overflow-hidden border-2 border-gray-600" id="modalAvatar">
+                            <img id="modalAvatarImg" class="w-full h-full object-cover hidden">
+                            <span id="modalAvatarText" class="w-full h-full flex items-center justify-center text-xl text-gray-400">U</span>
+                        </div>
+                        <label class="absolute inset-0 bg-black/50 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 cursor-pointer transition-opacity">
+                            <i class="fa-solid fa-camera text-white"></i>
+                            <input type="file" id="avatarInput" class="hidden" accept="image/*" onchange="uploadAvatar()">
+                        </label>
+                    </div>
+                    <div>
+                        <p class="text-sm font-medium text-white" id="modalEmail">user@example.com</p>
+                        <p class="text-xs text-gray-500">Click image to upload</p>
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-gray-400 mb-1">Display Name</label>
+                    <input type="text" id="pDisplayName" class="w-full bg-gray-800 border border-gray-700 rounded p-2.5 text-white">
+                </div>
+                <button onclick="saveProfile()" class="w-full bg-purple-600 hover:bg-purple-500 text-white py-2 rounded text-sm mt-2">Save Changes</button>
+            </div>
+
+            <div id="p-security" class="space-y-4 hidden">
+                <div>
+                    <label class="block text-xs font-medium text-gray-400 mb-1">New Password</label>
+                    <input type="password" id="pNewPass" class="w-full bg-gray-800 border border-gray-700 rounded p-2.5 text-white">
+                </div>
+                <button onclick="changePassword()" class="w-full bg-red-600 hover:bg-red-500 text-white py-2 rounded text-sm mt-2">Update Password</button>
+            </div>
+
+            <div class="mt-6 pt-4 border-t border-gray-700 text-right">
+                <button onclick="document.getElementById('profileModal').classList.add('hidden')" class="text-sm text-gray-400 hover:text-white">Close</button>
+            </div>
+        </div>
+    </div>
+
     <script>
-        // --- UPDATED SCRIPT ---
-        
         let auth = null;
         let token = null;
+        let isEditing = false;
+        let currentEditId = null;
+        let currentUserProfile = null;
+        let roleEditId = null;
 
-        // Initialize App
+        // --- INIT ---
         async function initApp() {
             try {
+                // Fetch Firebase config from backend
                 const response = await fetch('/api/v1/config');
                 const firebaseConfig = await response.json();
+                
                 if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
                 auth = firebase.auth();
                 setupAuthListener();
             } catch (e) { console.error("Config Load Error", e); }
         }
 
-        // Color Picker Sync
-        document.getElementById('tColor').addEventListener('input', e => document.getElementById('tColorHex').value = e.target.value);
-        document.getElementById('tColorHex').addEventListener('input', e => document.getElementById('tColor').value = e.target.value);
-        
-        document.getElementById('tBgColor').addEventListener('input', e => document.getElementById('tBgColorHex').value = e.target.value);
-        document.getElementById('tBgColorHex').addEventListener('input', e => document.getElementById('tBgColor').value = e.target.value);
-
-        // --- UPLOAD LOGIC ---
-        async function uploadBanner() {
-            const fileInput = document.getElementById('bannerUpload');
-            const file = fileInput.files[0];
-            if (!file) return alert("Please select a file first.");
-
-            const btn = event.target;
-            const originalText = btn.innerText;
-            btn.innerText = "...";
-            btn.disabled = true;
-
-            const formData = new FormData();
-            formData.append("file", file);
-
-            try {
-                const res = await fetch('/api/v1/admin/upload', {
-                    method: 'POST',
-                    headers: { 'Authorization': `Bearer ${token}` },
-                    body: formData
-                });
-
-                if (!res.ok) throw new Error("Upload failed");
-                const data = await res.json();
-                
-                // Add URL to hidden input (newline separated)
-                const hiddenInput = document.getElementById('tBanners');
-                hiddenInput.value += (hiddenInput.value ? "\n" : "") + data.url;
-
-                // Show thumbnail
-                const preview = document.getElementById('bannerPreview');
-                preview.innerHTML += `<img src="${data.url}" class="h-12 w-12 rounded object-cover border border-gray-600 bg-gray-800" title="Banner">`;
-                
-                fileInput.value = ""; // Reset
-            } catch (e) {
-                alert(e.message);
-            } finally {
-                btn.innerText = originalText;
-                btn.disabled = false;
-            }
-        }
-
-        // --- SUBMIT LOGIC ---
-        async function submitTenant() {
-            const payload = {
-                client_name: document.getElementById('tName').value,
-                tenant_id: document.getElementById('tId').value,
-                slug: document.getElementById('tSlug').value,
-                bot_name: document.getElementById('tBotName').value,
-                welcome_message: document.getElementById('tWelcome').value,
-                primary_color: document.getElementById('tColorHex').value,
-                custom_js: document.getElementById('tCustomJS').value,
-                // New Fields
-                background_color: document.getElementById('tBgColorHex').value,
-                banner_urls: document.getElementById('tBanners').value
-            };
-            
-            const res = await fetch('/api/v1/admin/tenants', {
-                method: 'POST',
-                headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
-            });
-            if (res.ok) { 
-                alert("Tenant Onboarded!"); 
-                document.getElementById('tenantModal').classList.add('hidden');
-                // Reset form
-                document.getElementById('tBanners').value = "";
-                document.getElementById('bannerPreview').innerHTML = "";
-                loadTenants(); 
-            }
-            else { const err = await res.json(); alert("Error: " + err.detail); }
-        }
-
-        // --- AUTH & NAVIGATION (Standard) ---
-        function setupAuthListener() {
-            auth.onAuthStateChanged(async (user) => {
-                if (!user) {
-                    if (!new URLSearchParams(window.location.search).has('force_login')) window.location.href = "/?force_login=true";
-                    return;
-                }
-                document.getElementById('userEmail').innerText = user.email;
-                document.getElementById('userAvatar').innerText = user.email.charAt(0).toUpperCase();
-                token = await user.getIdToken();
-
-                try {
-                    const res = await fetch('/api/v1/auth/me', { headers: { 'Authorization': `Bearer ${token}` }});
-                    const profile = await res.json();
-                    document.getElementById('userRole').innerText = profile.role.replace('_', ' ');
-
-                    if (['admin', 'super_admin'].includes(profile.role)) {
-                        document.getElementById('admin-nav').classList.remove('hidden');
-                        loadApprovals();
-                    }
-                    if (profile.role === 'super_admin') {
-                        document.getElementById('nav-users').classList.remove('hidden');
-                        document.getElementById('nav-tenants').classList.remove('hidden');
-                    }
-                    loadWorkspace();
-                } catch (e) { console.error("Profile load failed", e); }
-            });
-        }
-
+        // --- VIEW SWITCHING ---
         function switchView(viewName) {
-            ['workspace', 'approvals', 'users', 'tenants'].forEach(v => {
+            ['workspace', 'approvals', 'users', 'tenants', 'logs'].forEach(v => {
                 document.getElementById(`view-${v}`)?.classList.add('hidden');
                 document.getElementById(`nav-${v}`)?.classList.remove('active');
             });
             document.getElementById(`view-${viewName}`).classList.remove('hidden');
             document.getElementById(`nav-${viewName}`).classList.add('active');
             
+            // Auto-load data based on view
             if (viewName === 'users') loadUsers();
             if (viewName === 'approvals') loadApprovals();
             if (viewName === 'tenants') loadTenants();
+            if (viewName === 'logs') loadAuditLogs();
         }
 
+        // --- AUTH LISTENER ---
+        function setupAuthListener() {
+            auth.onAuthStateChanged(async (user) => {
+                if (!user) {
+                    if (!new URLSearchParams(window.location.search).has('force_login')) window.location.href = "/?force_login=true";
+                    return;
+                }
+                
+                token = await user.getIdToken();
+
+                try {
+                    // Fetch extended profile (Role, Avatar)
+                    const res = await fetch('/api/v1/auth/me', { headers: { 'Authorization': `Bearer ${token}` }});
+                    currentUserProfile = await res.json();
+                    
+                    // Update Sidebar Profile
+                    document.getElementById('userDisplayName').innerText = currentUserProfile.name || currentUserProfile.email;
+                    document.getElementById('userRole').innerText = currentUserProfile.role.replace('_', ' ');
+                    
+                    const avatar = document.getElementById('userAvatar');
+                    const img = document.getElementById('userImg');
+                    const initials = document.getElementById('userInitials');
+
+                    if (currentUserProfile.picture) {
+                        img.src = currentUserProfile.picture;
+                        img.classList.remove('hidden');
+                        initials.classList.add('hidden');
+                    } else {
+                        initials.innerText = (currentUserProfile.name || currentUserProfile.email).charAt(0).toUpperCase();
+                    }
+
+                    // Role-Based UI
+                    if (['admin', 'super_admin'].includes(currentUserProfile.role)) {
+                        document.getElementById('admin-nav').classList.remove('hidden');
+                        loadApprovals(); // Check for pending items
+                    }
+                    if (currentUserProfile.role === 'super_admin') {
+                        document.getElementById('nav-users').classList.remove('hidden');
+                        document.getElementById('nav-tenants').classList.remove('hidden');
+                        document.getElementById('nav-logs').classList.remove('hidden');
+                    }
+
+                    // Initial Loads
+                    loadWorkspace();
+                    loadStats();
+                    loadNotifications();
+                    setInterval(loadNotifications, 30000); // Poll notifications
+
+                } catch (e) { console.error("Profile load failed", e); }
+            });
+        }
+
+        // --- DATA LOADERS ---
         async function loadWorkspace() {
             const res = await fetch('/api/v1/admin/my-tenants', { headers: { 'Authorization': `Bearer ${token}` }});
             const data = await res.json();
             const container = document.getElementById('tenantList');
-            if(data.length === 0) { container.innerHTML = `<p class="text-gray-500">No projects.</p>`; return; }
+            
+            if(data.length === 0) { 
+                container.innerHTML = `<p class="text-gray-500 col-span-full text-center py-10">No projects assigned yet.</p>`; 
+                return; 
+            }
+            
             container.innerHTML = data.map(t => `
-                <div class="glass-card p-6 rounded-xl hover:bg-gray-800/50 transition-all">
-                    <h3 class="font-bold text-white text-lg">${t.name}</h3>
-                    <p class="text-xs text-gray-500 mb-4">${t.status.replace(/_/g, ' ')}</p>
-                    <a href="/${t.slug}" target="_blank" class="block w-full text-center bg-gray-800 hover:bg-gray-700 text-gray-300 text-xs font-medium py-2 rounded border border-gray-700">Launch Demo</a>
+                <div class="glass-card p-6 rounded-xl hover:bg-gray-800/50 transition-all flex flex-col justify-between group">
+                    <div>
+                        <div class="flex justify-between items-start">
+                            <h3 class="font-bold text-white text-lg group-hover:text-purple-400 transition-colors">${t.name}</h3>
+                            <span class="text-[10px] px-2 py-1 rounded-full uppercase font-bold tracking-wide ${getStatusColor(t.status)}">
+                                ${t.status ? t.status.replace(/_/g, ' ') : 'DRAFT'}
+                            </span>
+                        </div>
+                        <p class="text-xs text-gray-500 mt-1 mb-4">ID: ${t.tenant_id}</p>
+                    </div>
+                    <div class="flex gap-2 mt-4">
+                        <a href="/${t.slug}" target="_blank" class="flex-1 text-center bg-gray-800 hover:bg-gray-700 text-gray-300 text-xs font-medium py-2 rounded border border-gray-700 transition-colors">Launch</a>
+                        <button onclick="openEditModal('${t.tenant_id}')" class="flex-1 text-center bg-purple-900/30 hover:bg-purple-900/50 text-purple-300 text-xs font-medium py-2 rounded border border-purple-800/50 transition-colors">Edit</button>
+                    </div>
                 </div>
             `).join('');
         }
 
+        async function loadStats() {
+            try {
+                const res = await fetch('/api/v1/admin/stats', { headers: { 'Authorization': `Bearer ${token}` } });
+                const data = await res.json();
+                
+                document.getElementById('stat-projects').innerText = data.projects;
+                
+                // Show Approval/User stats only if relevant/privileged
+                const role = currentUserProfile.role;
+                if (data.approvals > 0 || role.includes('admin')) {
+                     document.getElementById('stat-approvals').innerText = data.approvals;
+                     document.getElementById('card-approvals').classList.remove('hidden');
+                }
+                
+                if (data.users > 0 && role === 'super_admin') {
+                     document.getElementById('stat-users').innerText = data.users;
+                     document.getElementById('card-users').classList.remove('hidden');
+                }
+            } catch(e) { console.error("Stats error", e); }
+        }
+
         async function loadTenants() {
-            const res = await fetch('/api/v1/admin/tenants', { headers: { 'Authorization': `Bearer ${token}` }});
+            const showArchived = document.getElementById('showArchivedTenants').checked;
+            const res = await fetch(`/api/v1/admin/tenants?show_archived=${showArchived}`, { headers: { 'Authorization': `Bearer ${token}` }});
             const tenants = await res.json();
-            const tbody = document.getElementById('allTenantsList');
-            tbody.innerHTML = tenants.map(t => `
-                <tr class="hover:bg-gray-800/50">
+            
+            document.getElementById('allTenantsList').innerHTML = tenants.map(t => {
+                const actionBtn = t.is_archived 
+                    ? `<button onclick="restoreTenant('${t.tenant_id}')" class="text-green-500 hover:text-green-400" title="Restore"><i class="fa-solid fa-rotate-left"></i></button>`
+                    : `<button onclick="deleteTenant('${t.tenant_id}')" class="text-gray-500 hover:text-red-400" title="Archive"><i class="fa-solid fa-trash"></i></button>`;
+                
+                return `
+                <tr class="hover:bg-gray-800/50 ${t.is_archived ? 'opacity-50' : ''} transition-colors">
                     <td class="px-6 py-4"><div class="text-white font-medium">${t.client_name}</div></td>
                     <td class="px-6 py-4"><div class="text-xs text-gray-400">/${t.slug}</div></td>
-                    <td class="px-6 py-4">
-                        ${t.live_config?.custom_js ? '<span class="text-green-400 text-xs">Script Active</span>' : '<span class="text-gray-500 text-xs">No Script</span>'}
-                    </td>
+                    <td class="px-6 py-4 text-xs text-gray-500">${t.is_archived ? 'Archived' : (t.live_config ? 'Configured' : 'Empty')}</td>
+                    <td class="px-6 py-4 text-right">${actionBtn}</td>
+                </tr>`;
+            }).join('');
+        }
+
+        async function loadUsers() {
+            const showArchived = document.getElementById('showArchivedUsers').checked;
+            const res = await fetch(`/api/v1/admin/users?show_archived=${showArchived}`, { headers: { 'Authorization': `Bearer ${token}` }});
+            const users = await res.json();
+            
+            document.getElementById('userList').innerHTML = users.map(u => {
+                const actionBtn = u.is_archived
+                    ? `<button onclick="restoreUser('${u.uid}')" class="text-green-500 hover:text-green-400" title="Restore"><i class="fa-solid fa-rotate-left"></i></button>`
+                    : `<div class="flex gap-2 justify-end">
+                        <button onclick="openRoleModal('${u.uid}', '${u.role}', '${u.email}')" class="text-blue-400 hover:text-blue-300" title="Edit Role"><i class="fa-solid fa-pen"></i></button>
+                        <button onclick="deleteUser('${u.uid}')" class="text-red-400 hover:text-red-300" title="Archive"><i class="fa-solid fa-trash"></i></button>
+                       </div>`;
+                
+                return `
+                <tr class="hover:bg-gray-800/50 ${u.is_archived ? 'opacity-50' : ''} transition-colors">
+                    <td class="px-6 py-4 text-white">${u.email}</td>
+                    <td class="px-6 py-4 text-purple-300 text-xs">${u.role}</td>
+                    <td class="px-6 py-4 text-right">${actionBtn}</td>
+                </tr>`;
+            }).join('');
+        }
+
+        async function loadAuditLogs() {
+            const tbody = document.getElementById('auditList');
+            tbody.innerHTML = '<tr><td colspan="5" class="px-6 py-4 text-center">Loading...</td></tr>';
+            try {
+                const res = await fetch('/api/v1/admin/audit-logs', { headers: { 'Authorization': `Bearer ${token}` }});
+                const logs = await res.json();
+                
+                if(logs.length === 0) { 
+                    tbody.innerHTML = '<tr><td colspan="5" class="px-6 py-4 text-center text-gray-500">No recent activity.</td></tr>'; 
+                    return; 
+                }
+                
+                tbody.innerHTML = logs.map(l => `
+                    <tr class="hover:bg-gray-800/50 border-b border-gray-800/50">
+                        <td class="px-6 py-4 text-xs text-gray-400 font-mono">${new Date(l.timestamp).toLocaleString()}</td>
+                        <td class="px-6 py-4 text-white text-sm">
+                            ${l.actor_email}<br><span class="text-[10px] text-gray-500 uppercase">${l.actor_role}</span>
+                        </td>
+                        <td class="px-6 py-4"><span class="bg-gray-700 text-gray-300 text-[10px] px-2 py-1 rounded uppercase font-bold tracking-wider">${l.action}</span></td>
+                        <td class="px-6 py-4 text-sm text-gray-300 font-mono text-xs">${l.target_id}</td>
+                        <td class="px-6 py-4 text-xs text-gray-400 truncate max-w-xs">${l.details}</td>
+                    </tr>
+                `).join('');
+            } catch(e) { tbody.innerHTML = '<tr><td colspan="5" class="px-6 py-4 text-center text-red-400">Failed to load logs.</td></tr>'; }
+        }
+
+        // --- NOTIFICATIONS ---
+        function toggleNotifications() {
+            const panel = document.getElementById('notifPanel');
+            panel.classList.toggle('hidden');
+            if (!panel.classList.contains('hidden')) loadNotifications();
+        }
+
+        async function loadNotifications() {
+            try {
+                const res = await fetch('/api/v1/notifications', { headers: { 'Authorization': `Bearer ${token}` } });
+                const list = await res.json();
+                const container = document.getElementById('notifList');
+                const badge = document.getElementById('notif-badge');
+                
+                // Badge Logic
+                const unreadCount = list.filter(n => !n.is_read).length;
+                if (unreadCount > 0) badge.classList.remove('hidden');
+                else badge.classList.add('hidden');
+
+                if (list.length === 0) {
+                    container.innerHTML = `<div class="p-4 text-center text-xs text-gray-500">No notifications</div>`;
+                    return;
+                }
+
+                container.innerHTML = list.map(n => `
+                    <div class="p-3 border-b border-gray-800 hover:bg-gray-800/50 transition relative group ${n.is_read ? 'opacity-60' : 'bg-gray-800/20'}">
+                        <div class="flex justify-between items-start">
+                            <h4 class="text-xs font-bold ${n.type === 'warning' ? 'text-yellow-400' : 'text-blue-400'}">${n.title}</h4>
+                            <span class="text-[10px] text-gray-500">${new Date(n.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
+                        </div>
+                        <p class="text-xs text-gray-300 mt-1">${n.message}</p>
+                        <div class="flex gap-2 mt-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                            ${!n.is_read ? `<button onclick="markRead('${n.id}')" class="text-[10px] text-green-400 hover:underline">Mark Read</button>` : ''}
+                            <button onclick="deleteNotif('${n.id}')" class="text-[10px] text-red-400 hover:underline">Dismiss</button>
+                        </div>
+                    </div>
+                `).join('');
+            } catch (e) { console.error("Notif Error", e); }
+        }
+
+        async function markRead(id) { await fetch(`/api/v1/notifications/${id}/read`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } }); loadNotifications(); }
+        async function deleteNotif(id) { await fetch(`/api/v1/notifications/${id}`, { method: 'DELETE', headers: { 'Authorization': `Bearer ${token}` } }); loadNotifications(); }
+
+        // --- TENANT ACTIONS ---
+        function openCreateModal() {
+            isEditing = false; currentEditId = null;
+            document.getElementById('modalTitle').innerText = "Onboard New Tenant";
+            document.getElementById('tId').disabled = false; document.getElementById('tId').classList.remove('opacity-50');
+            ['tName', 'tId', 'tSlug', 'tWelcome', 'tCustomJS', 'tBanners'].forEach(id => document.getElementById(id).value = "");
+            document.getElementById('bannerPreview').innerHTML = "";
+            document.getElementById('tenantModal').classList.remove('hidden');
+        }
+
+        async function openEditModal(tenantId) {
+            isEditing = true; currentEditId = tenantId;
+            document.getElementById('modalTitle').innerText = "Edit Tenant (Draft)";
+            document.getElementById('tId').disabled = true; document.getElementById('tId').classList.add('opacity-50');
+
+            try {
+                const res = await fetch(`/api/v1/admin/tenants/${tenantId}`, { headers: { 'Authorization': `Bearer ${token}` }});
+                const data = await res.json();
+                const config = data.config || {};
+
+                document.getElementById('tName').value = data.client_name;
+                document.getElementById('tId').value = data.tenant_id;
+                document.getElementById('tSlug').value = data.slug;
+                
+                document.getElementById('tBotName').value = config.bot_name || "";
+                document.getElementById('tWelcome').value = config.welcome_message || "";
+                document.getElementById('tCustomJS').value = config.custom_js || "";
+                
+                if(config.primary_color) {
+                    document.getElementById('tColor').value = config.primary_color;
+                    document.getElementById('tColorHex').value = config.primary_color;
+                }
+                if(config.background_color) {
+                    document.getElementById('tBgColor').value = config.background_color;
+                    document.getElementById('tBgColorHex').value = config.background_color;
+                }
+
+                // Banners
+                const banners = config.banner_urls || [];
+                document.getElementById('tBanners').value = banners.join('\n');
+                const preview = document.getElementById('bannerPreview');
+                preview.innerHTML = banners.map(u => `<img src="${u}" class="h-12 w-12 rounded object-cover border border-gray-600 bg-gray-800">`).join('');
+
+                document.getElementById('tenantModal').classList.remove('hidden');
+            } catch(e) { alert(e.message); }
+        }
+
+        async function submitTenant() {
+            const configPayload = {
+                bot_name: document.getElementById('tBotName').value,
+                welcome_message: document.getElementById('tWelcome').value,
+                primary_color: document.getElementById('tColorHex').value,
+                background_color: document.getElementById('tBgColorHex').value,
+                custom_js: document.getElementById('tCustomJS').value,
+                banner_urls: document.getElementById('tBanners').value.split('\n').filter(u => u.trim() !== "")
+            };
+
+            let url = '/api/v1/admin/tenants';
+            let body = {
+                tenant_id: document.getElementById('tId').value,
+                client_name: document.getElementById('tName').value,
+                slug: document.getElementById('tSlug').value,
+                ...configPayload
+            };
+
+            if (isEditing) {
+                url = `/api/v1/admin/submit-draft/${currentEditId}`;
+                body = configPayload; // Only config for draft
+            }
+
+            try {
+                const res = await fetch(url, {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+                    body: JSON.stringify(body)
+                });
+
+                if (res.ok) { 
+                    alert(isEditing ? "Draft Submitted!" : "Tenant Onboarded!"); 
+                    document.getElementById('tenantModal').classList.add('hidden');
+                    loadWorkspace(); 
+                    if(!document.getElementById('view-approvals').classList.contains('hidden')) loadApprovals();
+                    loadStats();
+                }
+                else { const err = await res.json(); alert("Error: " + err.detail); }
+            } catch(e) { console.error(e); alert("Submission failed."); }
+        }
+
+        async function deleteTenant(id) { if (confirm("Archive tenant?")) { await fetch(`/api/v1/admin/tenants/${id}`, { method: 'DELETE', headers: { 'Authorization': `Bearer ${token}` }}); loadTenants(); loadStats(); } }
+        async function restoreTenant(id) { if (confirm("Restore tenant?")) { await fetch(`/api/v1/admin/tenants/${id}/restore`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` }}); loadTenants(); loadStats(); } }
+
+        // --- USER ACTIONS ---
+        async function submitOnboarding() {
+            const payload = { 
+                email: document.getElementById('newUserEmail').value, 
+                password: document.getElementById('newUserPass').value, 
+                role: document.getElementById('newUserRole').value, 
+                assigned_tenants: document.getElementById('newUserTenants').value.split(',') 
+            };
+            await fetch('/api/v1/admin/users', { method: 'POST', headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+            document.getElementById('userModal').classList.add('hidden'); 
+            loadUsers(); 
+            loadStats();
+        }
+
+        async function deleteUser(uid) { if(confirm("Archive user?")) await fetch(`/api/v1/admin/users/${uid}`, { method: 'DELETE', headers: { 'Authorization': `Bearer ${token}` }}); loadUsers(); loadStats(); }
+        async function restoreUser(uid) { if(confirm("Restore user?")) await fetch(`/api/v1/admin/users/${uid}/restore`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` }}); loadUsers(); loadStats(); }
+
+        // --- ROLE MANAGEMENT ---
+        function openRoleModal(uid, role, email) {
+            roleEditId = uid;
+            document.getElementById('roleUserEmail').innerText = email;
+            document.getElementById('editUserRole').value = role;
+            document.getElementById('roleModal').classList.remove('hidden');
+        }
+
+        async function submitRoleChange() {
+            if (!roleEditId) return;
+            const newRole = document.getElementById('editUserRole').value;
+            try {
+                const res = await fetch(`/api/v1/admin/users/${roleEditId}/role`, {
+                    method: 'PUT',
+                    headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ role: newRole })
+                });
+                if(res.ok) {
+                    alert("Role updated!");
+                    document.getElementById('roleModal').classList.add('hidden');
+                    loadUsers();
+                } else { const err = await res.json(); alert("Error: " + err.detail); }
+            } catch(e) { alert("Failed to update role"); }
+        }
+
+        // --- PROFILE ---
+        function openProfileModal() {
+            document.getElementById('modalEmail').innerText = currentUserProfile.email;
+            document.getElementById('pDisplayName').value = currentUserProfile.name || "";
+            const avatarImg = document.getElementById('modalAvatarImg');
+            const avatarTxt = document.getElementById('modalAvatarText');
+            
+            if (currentUserProfile.picture) {
+                avatarImg.src = currentUserProfile.picture;
+                avatarImg.classList.remove('hidden');
+                avatarTxt.classList.add('hidden');
+            } else {
+                avatarImg.classList.add('hidden');
+                avatarTxt.classList.remove('hidden');
+                avatarTxt.innerText = (currentUserProfile.name || currentUserProfile.email).charAt(0).toUpperCase();
+            }
+            document.getElementById('profileModal').classList.remove('hidden');
+        }
+
+        function switchProfileTab(tab) {
+            document.getElementById('p-general').classList.toggle('hidden', tab !== 'general');
+            document.getElementById('p-security').classList.toggle('hidden', tab !== 'security');
+            const tGen = document.getElementById('tab-general'), tSec = document.getElementById('tab-security');
+            const active = ['text-purple-400', 'border-b-2', 'border-purple-500'];
+            const inactive = ['text-gray-400', 'hover:text-white'];
+            
+            if (tab === 'general') {
+                tGen.classList.add(...active); tGen.classList.remove(...inactive);
+                tSec.classList.remove(...active); tSec.classList.add(...inactive);
+            } else {
+                tSec.classList.add(...active); tSec.classList.remove(...inactive);
+                tGen.classList.remove(...active); tGen.classList.add(...inactive);
+            }
+        }
+
+        async function saveProfile() {
+            await fetch('/api/v1/auth/me', { method: 'PUT', headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ display_name: document.getElementById('pDisplayName').value }) });
+            location.reload();
+        }
+
+        async function changePassword() {
+            const res = await fetch('/api/v1/auth/me/password', { method: 'POST', headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ password: document.getElementById('pNewPass').value }) });
+            if(res.ok) { alert("Password Changed"); document.getElementById('profileModal').classList.add('hidden'); }
+            else { const d = await res.json(); alert(d.detail); }
+        }
+
+        async function uploadAvatar() {
+            const formData = new FormData();
+            formData.append("file", document.getElementById('avatarInput').files[0]);
+            const res = await fetch('/api/v1/auth/me/avatar', { method: 'POST', headers: { 'Authorization': `Bearer ${token}` }, body: formData });
+            if(res.ok) location.reload(); else alert("Upload failed");
+        }
+
+        // --- APPROVALS ---
+        async function loadApprovals() {
+            const res = await fetch('/api/v1/admin/approvals', { headers: { 'Authorization': `Bearer ${token}` }});
+            const items = await res.json();
+            if (items.length > 0) {
+                document.getElementById('badge-count').innerText = items.length;
+                document.getElementById('badge-count').classList.remove('hidden');
+            }
+            document.getElementById('approvalList').innerHTML = items.map(i => `
+                <tr class="hover:bg-gray-800/50 transition-colors">
+                    <td class="px-6 py-4 text-white">${i.client_name}</td>
+                    <td class="px-6 py-4 text-gray-400 text-xs">${i.modified_by}</td>
                     <td class="px-6 py-4 text-right space-x-2">
-                        <button onclick="deleteTenant('${t.tenant_id}')" class="text-gray-500 hover:text-red-400"><i class="fa-solid fa-trash"></i></button>
+                        <a href="/${i.slug}?preview=true" target="_blank" class="text-blue-400 text-xs border border-blue-400 px-2 py-1 rounded hover:bg-blue-900/30 transition-colors">Preview</a>
+                        <button onclick="processApproval('${i.tenant_id}')" class="text-green-400 text-xs border border-green-400 px-2 py-1 rounded hover:bg-green-900/30 transition-colors">Approve</button>
                     </td>
                 </tr>
             `).join('');
         }
+        async function processApproval(id) { if(confirm("Approve?")) await fetch(`/api/v1/admin/approve/${id}`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` }}); loadApprovals(); loadStats(); }
 
-        async function deleteTenant(id) {
-            if (!confirm("Delete tenant?")) return;
-            const res = await fetch(`/api/v1/admin/tenants/${id}`, { method: 'DELETE', headers: { 'Authorization': `Bearer ${token}` }});
-            if (res.ok) loadTenants();
+        // --- HELPERS ---
+        function getStatusColor(status) {
+            if (status === 'published') return 'bg-green-900 text-green-300';
+            if (status && status.includes('pending')) return 'bg-yellow-900 text-yellow-300';
+            return 'bg-gray-700 text-gray-300';
         }
 
-        async function loadApprovals() {
-            const res = await fetch('/api/v1/admin/approvals', { headers: { 'Authorization': `Bearer ${token}` }});
-            const items = await res.json();
-            if (items.length > 0) document.getElementById('badge-count').classList.remove('hidden');
-            document.getElementById('approvalList').innerHTML = items.map(i => `
-                <tr class="hover:bg-gray-800/50"><td class="px-6 py-4 text-white">${i.client_name}</td><td class="px-6 py-4 text-gray-400 text-xs">${i.modified_by}</td><td class="px-6 py-4 text-right"><button onclick="processApproval('${i.tenant_id}')" class="text-green-400">Approve</button></td></tr>
-            `).join('');
-        }
-        async function processApproval(id) { if(confirm("Approve?")) await fetch(`/api/v1/admin/approve/${id}`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` }}); loadApprovals(); }
-        
-        async function loadUsers() {
-            const res = await fetch('/api/v1/admin/users', { headers: { 'Authorization': `Bearer ${token}` }});
-            const users = await res.json();
-            document.getElementById('userList').innerHTML = users.map(u => `
-                <tr class="hover:bg-gray-800/50"><td class="px-6 py-4 text-white">${u.email}</td><td class="px-6 py-4 text-purple-300 text-xs">${u.role}</td><td class="px-6 py-4 text-right"><button onclick="deleteUser('${u.uid}')" class="text-red-400"><i class="fa-solid fa-trash"></i></button></td></tr>
-            `).join('');
-        }
-        async function submitOnboarding() {
-            const payload = { email: document.getElementById('newUserEmail').value, password: document.getElementById('newUserPass').value, role: document.getElementById('newUserRole').value, assigned_tenants: document.getElementById('newUserTenants').value.split(',') };
-            await fetch('/api/v1/admin/users', { method: 'POST', headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
-            document.getElementById('userModal').classList.add('hidden'); loadUsers();
-        }
-        async function deleteUser(uid) { if(confirm("Delete?")) await fetch(`/api/v1/admin/users/${uid}`, { method: 'DELETE', headers: { 'Authorization': `Bearer ${token}` }}); loadUsers(); }
+        // Color & File Sync
+        document.getElementById('tColor').addEventListener('input', e => document.getElementById('tColorHex').value = e.target.value);
+        document.getElementById('tColorHex').addEventListener('input', e => document.getElementById('tColor').value = e.target.value);
+        document.getElementById('tBgColor').addEventListener('input', e => document.getElementById('tBgColorHex').value = e.target.value);
+        document.getElementById('tBgColorHex').addEventListener('input', e => document.getElementById('tBgColor').value = e.target.value);
 
+        async function uploadBanner() {
+            const btn = event.target; btn.innerText = "..."; btn.disabled = true;
+            const formData = new FormData(); formData.append("file", document.getElementById('bannerUpload').files[0]);
+            try {
+                const res = await fetch('/api/v1/admin/upload', { method: 'POST', headers: { 'Authorization': `Bearer ${token}` }, body: formData });
+                const data = await res.json();
+                document.getElementById('tBanners').value += (document.getElementById('tBanners').value ? "\n" : "") + data.url;
+                document.getElementById('bannerPreview').innerHTML += `<img src="${data.url}" class="h-12 w-12 rounded bg-gray-800 border border-gray-600">`;
+            } catch (e) { alert("Failed"); } finally { btn.innerText = "Upload"; btn.disabled = false; }
+        }
+
+        // Start
         initApp();
     </script>
 </body>

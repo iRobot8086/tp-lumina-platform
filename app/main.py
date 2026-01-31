@@ -11,7 +11,8 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # Import Routers
-from app.api.v1.endpoints import admin, demos, auth
+# Ensure app/api/v1/endpoints/notifications.py exists
+from app.api.v1.endpoints import admin, demos, auth, notifications
 
 app = FastAPI(
     title="Lumina Platform",
@@ -34,9 +35,10 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request, call_next):
         response = await call_next(request)
         # UPDATED POLICY:
-        # 1. frame-src: Added 'https://chatbot.ema.co' to allow the chatbot iframe to load.
-        # 2. script-src: Added 'https://apis.google.com' for Google Sign-In.
-        # 3. connect-src: Added 'https://www.gstatic.com' for Firebase map files.
+        # - script-src: Added 'https://apis.google.com' (Google Sign-In), 'https://chatbot.ema.co' (Widget), Tailwind, FontAwesome
+        # - frame-src: Added 'https://accounts.google.com' (OAuth), 'https://chatbot.ema.co' (Widget Iframe)
+        # - img-src: Added 'https:' (Google Cloud Storage Images & User Avatars)
+        # - connect-src: Added Google APIs and Firebase services
         response.headers["Content-Security-Policy"] = (
             "default-src 'self'; "
             "script-src 'self' 'unsafe-inline' https://cdn.tailwindcss.com https://cdnjs.cloudflare.com https://www.gstatic.com https://chatbot.ema.co https://apis.google.com; "
@@ -60,6 +62,7 @@ templates = Jinja2Templates(directory="app/templates")
 # --- 3. API ROUTES ---
 app.include_router(auth.router, prefix="/api/v1/auth", tags=["Auth"])
 app.include_router(admin.router, prefix="/api/v1/admin", tags=["Admin"])
+app.include_router(notifications.router, prefix="/api/v1/notifications", tags=["Notifications"]) # Added Notification Service
 
 # New Endpoint: Serve Frontend Config Dynamically
 @app.get("/api/v1/config")
@@ -89,6 +92,7 @@ async def health():
     return {"status": "online"}
 
 # --- 5. CATCH-ALL ROUTE (LAST) ---
+# Handles tenant slugs (e.g. /acme, /demo-bot)
 app.include_router(demos.router, tags=["Demos"])
 
 if __name__ == "__main__":
