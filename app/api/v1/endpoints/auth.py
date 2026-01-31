@@ -1,15 +1,27 @@
 import logging
-from fastapi import APIRouter, Depends, HTTPException, status, Header, UploadFile, File
-from firebase_admin import auth
-from pydantic import BaseModel
 from typing import Optional
+from datetime import datetime
+from firebase_admin import auth
 from app.db.firestore import db
+from pydantic import BaseModel, EmailStr
 from app.storage import upload_file_to_gcs
+from firebase_admin import auth as firebase_auth
+from fastapi import APIRouter, Depends, HTTPException, status, Header, UploadFile, File
 
 logger = logging.getLogger("lumina.auth")
+
+
+# Define Request Model locally or import
 router = APIRouter()
 
 # --- MODELS ---
+
+class AccessRequest(BaseModel):
+    full_name: str
+    email: EmailStr
+    company: Optional[str] = None
+    reason: str
+
 class UserUpdate(BaseModel):
     display_name: Optional[str] = None
     photo_url: Optional[str] = None
@@ -109,3 +121,43 @@ async def upload_avatar(file: UploadFile = File(...), current_user: dict = Depen
     except Exception as e:
         logger.error(f"Avatar upload failed: {e}")
         raise HTTPException(status_code=500, detail="Upload failed")
+@router.post("/request-access")
+async def request_access(request_data: AccessRequest):
+    """
+    Public endpoint for users to request access.
+    Triggers notification to abcd@xyx.com (Logged).
+    """
+    # 1. Check duplication in Auth
+    try:
+        firebase_auth.get_user_by_email(request_data.email)
+        raise HTTPException(status_code=400, detail="User already registered. Please log in.")
+    except firebase_auth.UserNotFoundError:
+        pass # Good, user doesn't exist
+
+    # 2. Check pending duplicates in DB
+    existing_req = db.collection("access_requests").where("email", "==", request_data.email).where("status", "==", "pending").get()
+    if existing_req:
+        raise HTTPException(status_code=400, detail="A pending request for this email already exists.")
+
+    try:
+        # 3. Save Request
+        doc_ref = db.collection("access_requests").document()
+        data = request_data.dict()
+        data.update({
+            "status": "pending",
+            "timestamp": datetime.utcnow()
+        })
+        doc_ref.set(data)
+
+        # 4. Notify Admin (Mock Email Service)
+        # In a real app, use SendGrid/SES here.
+        print(f"------------ EMAIL ALERT ------------")
+        print(f"To: abcd@xyx.com")
+        print(f"Subject: New Access Request - {request_data.full_name}")
+        print(f"Body: {request_data.reason} (Company: {request_data.company})")
+        print(f"-------------------------------------")
+        
+        return {"message": "Request submitted successfully. Our admins will review it shortly."}
+    except Exception as e:
+        print(f"Access request error: {e}")
+        raise HTTPException(status_code=500, detail="Failed to submit request.")

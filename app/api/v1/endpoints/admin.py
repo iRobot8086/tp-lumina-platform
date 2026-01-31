@@ -421,3 +421,100 @@ async def restore_user(uid: str, current_user: dict = Depends(get_current_user))
         return {"message": "User restored"}
     except Exception:
         raise HTTPException(status_code=400, detail="Failed to restore user.")
+
+@router.get("/access-requests")
+async def list_access_requests(user: dict = Depends(get_current_user)):
+    """Fetches all pending access requests. (Super Admin Only)"""
+    if not check_permission(user["role"], Action.MANAGE_USERS):
+        raise HTTPException(status_code=403, detail="Permission denied")
+    
+    try:
+        docs = db.collection("access_requests").where("status", "==", "pending").order_by("timestamp", direction="DESCENDING").stream()
+        requests = []
+        for doc in docs:
+            d = doc.to_dict()
+            d["id"] = doc.id
+            if isinstance(d.get("timestamp"), datetime):
+                d["timestamp"] = d["timestamp"].isoformat()
+            requests.append(d)
+        return requests
+    except Exception as e:
+        logger.error(f"Error fetching requests: {e}")
+        return []
+
+@router.post("/access-requests/{request_id}/approve")
+async def approve_access_request(request_id: str, user: dict = Depends(get_current_user)):
+    """Approves request: Creates Firebase User + Firestore Profile."""
+    if not check_permission(user["role"], Action.MANAGE_USERS):
+        raise HTTPException(status_code=403, detail="Permission denied")
+
+    try:
+        # 1. Fetch Request Data
+        req_ref = db.collection("access_requests").document(request_id)
+        req_doc = req_ref.get()
+        if not req_doc.exists:
+            raise HTTPException(status_code=404, detail="Request not found")
+        data = req_doc.to_dict()
+
+        # 2. Generate Temp Password
+        temp_password = "Welcome123!" 
+
+        # 3. Create Firebase User
+        try:
+            user_record = firebase_auth.create_user(
+                email=data["email"],
+                password=temp_password,
+                display_name=data["full_name"],
+                email_verified=True
+            )
+        except Exception as e:
+            # Handle case where user might have signed up externally in the meantime
+            raise HTTPException(status_code=400, detail=f"Could not create user: {str(e)}")
+
+        # 4. Create Firestore User Profile
+        new_user = User(
+            uid=user_record.uid,
+            email=data["email"],
+            role="contributor", # Default role
+            assigned_tenants=[]
+        )
+        # Assuming you have the User model logic to convert to dict
+        user_dict = new_user.dict()
+        user_dict["is_archived"] = False
+        db.collection("users").document(new_user.uid).set(user_dict)
+
+        # 5. Mark Request as Approved
+        req_ref.update({
+            "status": "approved",
+            "processed_by": user["email"],
+            "processed_at": datetime.utcnow()
+        })
+
+        # 6. Log & Notify
+        await log_activity(user["email"], user["role"], "APPROVE_ACCESS", data["email"], "Created user from request")
+        
+        # In real world: Send email to data["email"] with temp_password
+        
+        return {"message": f"User created successfully. Temp password: {temp_password}"}
+
+    except HTTPException as he:
+        raise he
+    except Exception as e:
+        logger.error(f"Approval failed: {e}")
+        raise HTTPException(status_code=500, detail="Internal server error")
+
+@router.post("/access-requests/{request_id}/reject")
+async def reject_access_request(request_id: str, user: dict = Depends(get_current_user)):
+    """Rejects request."""
+    if not check_permission(user["role"], Action.MANAGE_USERS):
+        raise HTTPException(status_code=403, detail="Permission denied")
+    
+    try:
+        db.collection("access_requests").document(request_id).update({
+            "status": "rejected",
+            "processed_by": user["email"],
+            "processed_at": datetime.utcnow()
+        })
+        return {"message": "Request rejected"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail="Failed to reject")

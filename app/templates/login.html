@@ -27,6 +27,31 @@
                 </svg>
             </div>
         </div>
+        <div class="mt-4 text-center">
+            <p class="text-xs text-gray-400">Don't have an account?</p>
+            <button onclick="document.getElementById('requestModal').classList.remove('hidden')" class="text-xs text-purple-400 hover:text-purple-300 underline mt-1">
+                Request Access
+            </button>
+        </div>
+        
+        <div id="requestModal" class="fixed inset-0 z-50 hidden bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+            <div class="glass w-full max-w-md rounded-xl p-6 shadow-2xl bg-gray-900 border border-gray-700">
+                <h3 class="text-lg font-bold text-white mb-2">Request Access</h3>
+                <p class="text-xs text-gray-400 mb-4">Admins will review your request (sent to abcd@xyx.com).</p>
+                
+                <div class="space-y-3">
+                    <input type="text" id="reqName" placeholder="Full Name" class="w-full bg-gray-800 border border-gray-700 rounded p-2 text-white text-sm focus:border-purple-500 outline-none">
+                    <input type="email" id="reqEmail" placeholder="Email Address" class="w-full bg-gray-800 border border-gray-700 rounded p-2 text-white text-sm focus:border-purple-500 outline-none">
+                    <input type="text" id="reqCompany" placeholder="Company (Optional)" class="w-full bg-gray-800 border border-gray-700 rounded p-2 text-white text-sm focus:border-purple-500 outline-none">
+                    <textarea id="reqReason" rows="3" placeholder="Purpose for access..." class="w-full bg-gray-800 border border-gray-700 rounded p-2 text-white text-sm focus:border-purple-500 outline-none"></textarea>
+                </div>
+        
+                <div class="mt-6 flex gap-3 justify-end">
+                    <button onclick="document.getElementById('requestModal').classList.add('hidden')" class="text-sm text-gray-400 hover:text-white">Cancel</button>
+                    <button onclick="submitRequest()" class="bg-purple-600 hover:bg-purple-500 text-white px-4 py-2 rounded text-sm transition-colors">Submit Request</button>
+                </div>
+            </div>
+        </div>
         <h2 class="text-3xl font-bold text-white mb-2 tracking-tight">Welcome back</h2>
         <p class="text-gray-400 mb-8 text-sm">Enter the Lumina Orchestration Platform</p>
 
@@ -45,6 +70,48 @@
     </div>
 
     <script>
+        async function submitRequest() {
+    const btn = event.target;
+    const originalText = btn.innerText;
+    btn.innerText = "Sending...";
+    btn.disabled = true;
+
+    const payload = {
+        full_name: document.getElementById('reqName').value,
+        email: document.getElementById('reqEmail').value,
+        company: document.getElementById('reqCompany').value,
+        reason: document.getElementById('reqReason').value
+    };
+    
+    if(!payload.email || !payload.full_name || !payload.reason) {
+        alert("Please fill in Name, Email, and Purpose.");
+        btn.innerText = originalText;
+        btn.disabled = false;
+        return;
+    }
+
+    try {
+        const res = await fetch('/api/v1/auth/request-access', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(payload)
+        });
+        const data = await res.json();
+        if(res.ok) {
+            alert(data.message);
+            document.getElementById('requestModal').classList.add('hidden');
+            // Clear form
+            ['reqName', 'reqEmail', 'reqCompany', 'reqReason'].forEach(id => document.getElementById(id).value = '');
+        } else {
+            alert(data.detail || "Submission failed");
+        }
+    } catch(e) { 
+        alert("Network error. Please try again."); 
+    } finally {
+        btn.innerText = originalText;
+        btn.disabled = false;
+    }
+}
         // --- 1. DYNAMIC CONFIG LOADER ---
         async function initAuth() {
             try {

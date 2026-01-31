@@ -63,6 +63,9 @@
                     <button onclick="switchView('logs')" id="nav-logs" class="hidden sidebar-link w-full flex items-center px-4 py-3 text-sm font-medium text-gray-400 rounded-r-lg hover:bg-gray-800 hover:text-white transition-colors">
                         <i class="fa-solid fa-clock-rotate-left w-6"></i> Activity Log
                     </button>
+                    <button onclick="switchView('requests')" id="nav-requests" class="hidden sidebar-link w-full flex items-center px-4 py-3 text-sm font-medium text-gray-400 rounded-r-lg hover:bg-gray-800 hover:text-white transition-colors">
+                        <i class="fa-solid fa-envelope-open-text w-6"></i> Access Requests
+                    </button>
                 </div>
             </nav>
         </div>
@@ -104,6 +107,29 @@
 
             <h2 class="text-xl font-bold text-white mt-8 mb-4">My Projects</h2>
             <div id="tenantList" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"></div>
+        </section>
+        <section id="view-requests" class="hidden space-y-6">
+            <div class="flex justify-between items-center">
+                <h1 class="text-2xl font-bold text-white">Pending Access Requests</h1>
+                <button onclick="loadRequests()" class="text-sm text-gray-400 hover:text-white flex items-center gap-2 bg-gray-800 px-3 py-1.5 rounded border border-gray-700">
+                    <i class="fa-solid fa-rotate-right"></i> Refresh
+                </button>
+            </div>
+            <div class="glass rounded-xl overflow-hidden">
+                <table class="w-full text-left text-sm text-gray-400">
+                    <thead class="bg-gray-800 text-gray-200">
+                        <tr>
+                            <th class="px-6 py-4">User Details</th>
+                            <th class="px-6 py-4">Purpose</th>
+                            <th class="px-6 py-4">Date</th>
+                            <th class="px-6 py-4 text-right">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="requestList" class="divide-y divide-gray-800">
+                        <tr><td colspan="4" class="px-6 py-4 text-center">Loading...</td></tr>
+                    </tbody>
+                </table>
+            </div>
         </section>
 
         <section id="view-approvals" class="hidden space-y-6">
@@ -257,6 +283,61 @@
 
     <script>
         let auth = null, token = null, isEditing = false, currentEditId = null, currentUserProfile = null, roleEditId = null;
+
+        async function loadRequests() {
+    const tbody = document.getElementById('requestList');
+    tbody.innerHTML = '<tr><td colspan="4" class="px-6 py-4 text-center">Loading...</td></tr>';
+    try {
+        const res = await fetch('/api/v1/admin/access-requests', { headers: { 'Authorization': `Bearer ${token}` } });
+        const list = await res.json();
+        
+        if (list.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="4" class="px-6 py-4 text-center text-gray-500">No pending requests.</td></tr>';
+            return;
+        }
+
+        tbody.innerHTML = list.map(r => `
+            <tr class="hover:bg-gray-800/50 transition-colors">
+                <td class="px-6 py-4">
+                    <div class="text-white font-bold">${r.full_name}</div>
+                    <div class="text-xs text-gray-400">${r.email}</div>
+                    ${r.company ? `<div class="text-[10px] text-gray-500">${r.company}</div>` : ''}
+                </td>
+                <td class="px-6 py-4 max-w-xs truncate" title="${r.reason}">
+                    ${r.reason}
+                </td>
+                <td class="px-6 py-4 text-xs text-gray-500 font-mono">
+                    ${new Date(r.timestamp).toLocaleDateString()}
+                </td>
+                <td class="px-6 py-4 text-right space-x-2">
+                    <button onclick="decideRequest('${r.id}', 'approve')" class="text-green-400 hover:text-green-300 border border-green-500/30 px-3 py-1 rounded text-xs transition-colors">Approve</button>
+                    <button onclick="decideRequest('${r.id}', 'reject')" class="text-red-400 hover:text-red-300 border border-red-500/30 px-3 py-1 rounded text-xs transition-colors">Reject</button>
+                </td>
+            </tr>
+        `).join('');
+    } catch (e) {
+        tbody.innerHTML = '<tr><td colspan="4" class="px-6 py-4 text-center text-red-400">Failed to load requests.</td></tr>';
+    }
+}
+
+async function decideRequest(id, action) {
+    if(!confirm(`Are you sure you want to ${action} this request?`)) return;
+    try {
+        const res = await fetch(`/api/v1/admin/access-requests/${id}/${action}`, { 
+            method: 'POST', 
+            headers: { 'Authorization': `Bearer ${token}` } 
+        });
+        const data = await res.json();
+        if(res.ok) {
+            alert(data.message);
+            loadRequests();
+            // Refresh stats if approved, as user count changed
+            if(action === 'approve') loadStats(); 
+        } else {
+            alert("Error: " + data.detail);
+        }
+    } catch(e) { alert("Action failed"); }
+}
 
         async function initApp() { try { const r = await fetch('/api/v1/config'); const c = await r.json(); if (!firebase.apps.length) firebase.initializeApp(c); auth = firebase.auth(); setupAuthListener(); } catch (e) { console.error(e); } }
 
