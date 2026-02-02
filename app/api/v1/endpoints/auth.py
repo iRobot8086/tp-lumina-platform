@@ -1,17 +1,17 @@
 import logging
 from typing import Optional
 from datetime import datetime
-from firebase_admin import auth
+from firebase_admin import auth as firebase_auth
 from app.db.firestore import db
 from pydantic import BaseModel, EmailStr
 from app.storage import upload_file_to_gcs
-from firebase_admin import auth as firebase_auth
 from fastapi import APIRouter, Depends, HTTPException, status, Header, UploadFile, File
+
+# Import the notification service
+from app.services.notifications import notify_admins
 
 logger = logging.getLogger("lumina.auth")
 
-
-# Define Request Model locally or import
 router = APIRouter()
 
 # --- MODELS ---
@@ -39,7 +39,7 @@ async def get_current_user(authorization: str = Header(...)):
             raise HTTPException(status_code=401, detail="Invalid header format")
         
         token = authorization.split("Bearer ")[1]
-        decoded_token = auth.verify_id_token(token)
+        decoded_token = firebase_auth.verify_id_token(token)
         uid = decoded_token["uid"]
         email = decoded_token["email"]
 
@@ -49,7 +49,6 @@ async def get_current_user(authorization: str = Header(...)):
             user_data = user_doc.to_dict()
             role = user_data.get("role", "contributor")
         else:
-            # Fallback/Auto-create logic if needed, or default to contributor
             role = "contributor"
 
         return {
@@ -84,7 +83,7 @@ async def update_profile(data: UserUpdate, current_user: dict = Depends(get_curr
         if not update_args:
             return {"message": "No changes requested"}
 
-        auth.update_user(current_user["uid"], **update_args)
+        firebase_auth.update_user(current_user["uid"], **update_args)
         return {"message": "Profile updated successfully"}
     except Exception as e:
         logger.error(f"Profile update failed: {e}")
@@ -97,7 +96,7 @@ async def change_password(data: PasswordUpdate, current_user: dict = Depends(get
         if len(data.password) < 6:
             raise HTTPException(status_code=400, detail="Password must be at least 6 characters")
             
-        auth.update_user(current_user["uid"], password=data.password)
+        firebase_auth.update_user(current_user["uid"], password=data.password)
         return {"message": "Password changed successfully"}
     except Exception as e:
         logger.error(f"Password change failed: {e}")
@@ -110,29 +109,26 @@ async def upload_avatar(file: UploadFile = File(...), current_user: dict = Depen
         raise HTTPException(status_code=400, detail="Only images allowed")
 
     try:
-        # Prefix with 'avatars/' to keep bucket organized
         filename = f"avatars/{current_user['uid']}-{file.filename}"
         public_url = upload_file_to_gcs(file.file, filename, file.content_type)
         
-        # Auto-update profile with new URL
-        auth.update_user(current_user["uid"], photo_url=public_url)
-        
+        firebase_auth.update_user(current_user["uid"], photo_url=public_url)
         return {"url": public_url}
     except Exception as e:
         logger.error(f"Avatar upload failed: {e}")
         raise HTTPException(status_code=500, detail="Upload failed")
+
 @router.post("/request-access")
 async def request_access(request_data: AccessRequest):
     """
     Public endpoint for users to request access.
-    Triggers notification to Logged.
     """
     # 1. Check duplication in Auth
     try:
         firebase_auth.get_user_by_email(request_data.email)
         raise HTTPException(status_code=400, detail="User already registered. Please log in.")
     except firebase_auth.UserNotFoundError:
-        pass # Good, user doesn't exist
+        pass 
 
     # 2. Check pending duplicates in DB
     existing_req = db.collection("access_requests").where("email", "==", request_data.email).where("status", "==", "pending").get()
@@ -145,19 +141,18 @@ async def request_access(request_data: AccessRequest):
         data = request_data.dict()
         data.update({
             "status": "pending",
-            "timestamp": datetime.utcnow()
+            "timestamp": datetime.utcnow().isoformat() # ISO format for robust sorting
         })
         doc_ref.set(data)
 
-        # 4. Notify Admin (Mock Email Service)
-        # In a real app, use SendGrid/SES here.
-        print(f"------------ EMAIL ALERT ------------")
-        print(f"To: abcd@xyx.com")
-        print(f"Subject: New Access Request - {request_data.full_name}")
-        print(f"Body: {request_data.reason} (Company: {request_data.company})")
-        print(f"-------------------------------------")
+        # 4. Notify Admins (Triggers Bell Icon)
+        await notify_admins(
+            title="New Access Request", 
+            message=f"{request_data.full_name} requests access.", 
+            link="requests"
+        )
         
-        return {"message": "Request submitted successfully. Our admins will review it shortly."}
+        return {"message": "Request submitted successfully. Admins have been notified."}
     except Exception as e:
-        print(f"Access request error: {e}")
+        logger.error(f"Access request error: {e}")
         raise HTTPException(status_code=500, detail="Failed to submit request.")

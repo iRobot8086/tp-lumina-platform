@@ -422,6 +422,7 @@ async def restore_user(uid: str, current_user: dict = Depends(get_current_user))
     except Exception:
         raise HTTPException(status_code=400, detail="Failed to restore user.")
 
+# --- ACCESS REQUESTS (Super Admin) ---
 @router.get("/access-requests")
 async def list_access_requests(user: dict = Depends(get_current_user)):
     """Fetches all pending access requests. (Super Admin Only)"""
@@ -429,14 +430,18 @@ async def list_access_requests(user: dict = Depends(get_current_user)):
         raise HTTPException(status_code=403, detail="Permission denied")
     
     try:
-        docs = db.collection("access_requests").where("status", "==", "pending").order_by("timestamp", direction="DESCENDING").stream()
+        # FIX: Removed .order_by("timestamp") to prevent Missing Index Error
+        docs = db.collection("access_requests").where("status", "==", "pending").stream()
+        
         requests = []
         for doc in docs:
             d = doc.to_dict()
             d["id"] = doc.id
-            if isinstance(d.get("timestamp"), datetime):
-                d["timestamp"] = d["timestamp"].isoformat()
             requests.append(d)
+        
+        # Sort in Python instead (Robust)
+        requests.sort(key=lambda x: x.get("timestamp", ""), reverse=True)
+        
         return requests
     except Exception as e:
         logger.error(f"Error fetching requests: {e}")
